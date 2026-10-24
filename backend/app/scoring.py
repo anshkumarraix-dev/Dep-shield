@@ -494,8 +494,8 @@ def build_finding(
     )
 
     # --- 11. first_signal_at from sources ----------------------------------
-    dated_sources = [s for s in sources if s.published_at]
-    first_signal_at = min((s.published_at for s in dated_sources), default=None)
+    dates = [s.published_at for s in sources if s.published_at is not None]
+    first_signal_at = min(dates, default=None)
 
     return Finding(
         id=finding_id,

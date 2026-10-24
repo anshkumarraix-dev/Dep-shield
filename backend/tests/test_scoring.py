@@ -9,7 +9,7 @@ from typing import Optional
 
 import pytest
 
-from app.models import Dependency, OsvResult, Signal, Source
+from app.models import Dependency, OsvResult, Severity, Signal, Source, VersionMatch
 from app.scoring import (
     _compute_confidence,
     _determine_status,
@@ -35,8 +35,8 @@ def _dep(name="lodash", version="4.17.20", direct=True) -> Dependency:
 def _sig(
     url="https://github.com/lodash/lodash/issues/1",
     security_relevant=True,
-    severity="high",
-    version_match="confirmed",
+    severity: Severity = "high",
+    version_match: VersionMatch = "confirmed",
     is_original=True,
     credibility=0.75,
     evidence_quote="",

@@ -133,6 +133,7 @@ def test_scan_and_findings_persistence(temp_db):
 
     db.update_scan("scan-123", status="done", packages_done=2)
     updated = db.get_scan("scan-123")
+    assert updated is not None
     assert updated.status == "done"
     assert updated.packages_done == 2
 
@@ -163,6 +164,8 @@ def test_scan_and_findings_persistence(temp_db):
 
     # Dependency graph
     db.save_dependency_graph("scan-123", [{"id": "app"}], [{"source": "app", "target": "express"}])
-    nodes, edges = db.get_dependency_graph("scan-123")
+    graph = db.get_dependency_graph("scan-123")
+    assert graph is not None
+    nodes, edges = graph
     assert len(nodes) == 1
     assert len(edges) == 1

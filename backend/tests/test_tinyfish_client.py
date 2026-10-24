@@ -117,8 +117,22 @@ def test_agent_budget_cap_and_blocked(monkeypatch):
     class FakeAgent:
         async def run(self, **kw):
             calls.append(kw)
-            return AgentRunResponse(status=RunStatus.COMPLETED, result={"blocked": False, "issues": [
-                {"title": "Possible RCE in parser", "url": "https://github.com/o/r/issues/9", "opened": "2026-01-01", "snippet": "s"}]}, num_of_steps=4)
+            return AgentRunResponse.model_validate({
+                "status": RunStatus.COMPLETED,
+                "run_id": "run_1",
+                "result": {
+                    "blocked": False,
+                    "issues": [
+                        {
+                            "title": "Possible RCE in parser",
+                            "url": "https://github.com/o/r/issues/9",
+                            "opened": "2026-01-01",
+                            "snippet": "s",
+                        }
+                    ],
+                },
+                "num_of_steps": 4,
+            })
 
     patch_client(monkeypatch, agent=FakeAgent())
     monkeypatch.setenv("MAX_AGENT_RUNS", "1")
@@ -129,7 +143,12 @@ def test_agent_budget_cap_and_blocked(monkeypatch):
 
     class Blocked:
         async def run(self, **kw):
-            return AgentRunResponse(status=RunStatus.COMPLETED, result={"blocked": True, "issues": []}, num_of_steps=1)
+            return AgentRunResponse.model_validate({
+                "status": RunStatus.COMPLETED,
+                "run_id": "run_2",
+                "result": {"blocked": True, "issues": []},
+                "num_of_steps": 1,
+            })
 
     tf._mem_usage.clear(); tf._mem_cache.clear()
     patch_client(monkeypatch, agent=Blocked())

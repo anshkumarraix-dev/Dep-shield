@@ -83,6 +83,8 @@ async def test_scan_upload_and_flow():
         assert scan_id.startswith("scan_")
 
         # 2. Allow background scan to complete
+        scan_resp = None
+        scan_data: dict = {}
         for _ in range(30):
             await asyncio.sleep(0.1)
             scan_resp = await client.get(f"/api/scans/{scan_id}")
@@ -91,10 +93,11 @@ async def test_scan_upload_and_flow():
             if scan_data["status"] in ("done", "error"):
                 break
 
-        assert scan_data["status"] == "done"
-        assert scan_data["packages_done"] >= 1
+        assert scan_data.get("status") == "done"
+        assert scan_data.get("packages_done", 0) >= 1
 
         # 3. Check findings
+        assert scan_resp is not None
         findings = scan_resp.json()["findings"]
         assert len(findings) >= 1
         finding_statuses = {f["status"] for f in findings}
@@ -124,12 +127,14 @@ async def test_replay_scan():
         assert resp.status_code == 200
         scan_id = resp.json()["scan_id"]
 
+        scan_resp = None
         for _ in range(30):
             await asyncio.sleep(0.1)
             scan_resp = await client.get(f"/api/scans/{scan_id}")
             if scan_resp.json()["scan"]["status"] in ("done", "error"):
                 break
 
+        assert scan_resp is not None
         assert scan_resp.json()["scan"]["status"] == "done"
 
 

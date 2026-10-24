@@ -33,10 +33,11 @@ def _get_pipeline_modules():
         return stubs, stubs, stubs, stubs
 
     try:
-        from . import baseline as _baseline
-        from . import classifier as _classifier
-        from . import scoring as _scoring
-        from . import tinyfish_client as _tinyfish
+        import importlib
+        _baseline = importlib.import_module(".baseline", package=__package__)
+        _classifier = importlib.import_module(".classifier", package=__package__)
+        _scoring = importlib.import_module(".scoring", package=__package__)
+        _tinyfish = importlib.import_module(".tinyfish_client", package=__package__)
         return _baseline, _tinyfish, _classifier, _scoring
     except (ImportError, AttributeError) as e:
         logger.warning("Could not load all live modules, falling back to stubs: %s", e)

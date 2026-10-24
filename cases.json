@@ -1,0 +1,237 @@
+{
+  "_meta": {
+    "description": "DepShield replay evaluation cases. Each incident includes only facts verifiable from public sources before the stated cutoff. Fields set to null indicate information that could not be verified at time of writing; do NOT assume null == safe. Current OSV data is labelled separately and must not be presented as if it existed before the cutoff date.",
+    "format_version": "1",
+    "generated_at": "2026-10-24",
+    "caveat": "A past date-filtered search alone does NOT recreate the full historical web. Treat replay results as approximations, not perfect historical reconstructions. Label all present-day baseline lookups (OSV, npm registry) as 'current' to distinguish them from pre-cutoff evidence."
+  },
+  "cases": [
+    {
+      "id": "event-stream-2018",
+      "label": "event-stream / flatmap-stream supply chain (2018)",
+      "package": "event-stream",
+      "affected_version": "3.3.6",
+      "ecosystem": "npm",
+      "cutoff_date": "2018-11-27",
+      "notes": "Malicious code was injected into flatmap-stream 0.1.1, a dependency added to event-stream 3.3.6 on 2018-09-09. The payload targeted the Copay Bitcoin wallet. The attack was publicly disclosed via a GitHub issue on 2018-11-20.",
+      "timeline": [
+        {
+          "event": "Malicious flatmap-stream 0.1.1 published to npm",
+          "date": "2018-09-09",
+          "date_source_url": "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident",
+          "is_pre_cutoff": true,
+          "notes": "Date verifiable from npm publish timestamp and npm blog post."
+        },
+        {
+          "event": "First public signal: GitHub issue #116 opened by user FallingSnow",
+          "date": "2018-11-20",
+          "date_source_url": "https://github.com/dominictarr/event-stream/issues/116",
+          "url": "https://github.com/dominictarr/event-stream/issues/116",
+          "is_pre_cutoff": true,
+          "notes": "This is the first verifiable pre-cutoff public signal. The GitHub issue is the original report; all subsequent news articles are reposts."
+        },
+        {
+          "event": "npm blog incident report published",
+          "date": "2018-11-26",
+          "date_source_url": "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident",
+          "url": "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident",
+          "is_pre_cutoff": true,
+          "notes": "Official npm incident report. Corroborating advisory source."
+        }
+      ],
+      "first_verifiable_public_signal": {
+        "url": "https://github.com/dominictarr/event-stream/issues/116",
+        "date": "2018-11-20",
+        "date_source_url": "https://github.com/dominictarr/event-stream/issues/116",
+        "source_type": "github_issue"
+      },
+      "advisory_sources": [
+        {
+          "url": "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident",
+          "published_date": "2018-11-26",
+          "date_source_url": "https://blog.npmjs.org/post/180565383195/details-about-the-event-stream-incident",
+          "type": "maintainer_advisory"
+        }
+      ],
+      "current_osv_result": {
+        "label": "CURRENT (not pre-cutoff)",
+        "note": "OSV data as of 2026-10-24; would not have been available before 2018-11-27 cutoff.",
+        "vuln_ids": ["GHSA-7fh8-383t-2463"],
+        "source_url": "https://osv.dev/vulnerability/GHSA-7fh8-383t-2463"
+      },
+      "expected_signals": {
+        "min_independent_sources": 2,
+        "expected_status_at_cutoff": "HIGH",
+        "notes": "Two independent sources pre-cutoff: GitHub issue (original report) + npm blog (maintainer advisory). Version 3.3.6 explicitly named in both. Severity: critical (malicious supply chain code). Version match: confirmed."
+      },
+      "false_positive_risk": "low",
+      "version_match_evidence": "Event-stream 3.3.6 is explicitly named in the GitHub issue and npm blog as the affected version.",
+      "version_match_evidence_url": "https://github.com/dominictarr/event-stream/issues/116"
+    },
+    {
+      "id": "ua-parser-js-2021",
+      "label": "ua-parser-js npm account hijack (2021)",
+      "package": "ua-parser-js",
+      "affected_version": "0.7.29",
+      "ecosystem": "npm",
+      "cutoff_date": "2021-10-25",
+      "notes": "On 2021-10-22, the npm account for ua-parser-js was hijacked and malicious versions 0.7.29, 0.8.0, and 1.0.0 were published. The malware installed a cryptominer and credential stealer. npm took the packages down and the maintainer published a clean replacement on 2021-10-22.",
+      "timeline": [
+        {
+          "event": "Malicious ua-parser-js 0.7.29 published to npm (account hijacked)",
+          "date": "2021-10-22",
+          "date_source_url": "https://github.com/faisalman/ua-parser-js/issues/536",
+          "is_pre_cutoff": true,
+          "notes": "Date from the GitHub issue opened by the maintainer."
+        },
+        {
+          "event": "Maintainer GitHub issue warning published",
+          "date": "2021-10-22",
+          "date_source_url": "https://github.com/faisalman/ua-parser-js/issues/536",
+          "url": "https://github.com/faisalman/ua-parser-js/issues/536",
+          "is_pre_cutoff": true,
+          "notes": "Original report — the maintainer posted this warning themselves. Highest credibility."
+        },
+        {
+          "event": "GitHub Security Advisory published",
+          "date": "2021-10-22",
+          "date_source_url": "https://github.com/advisories/GHSA-pjwm-rvh2-c87w",
+          "url": "https://github.com/advisories/GHSA-pjwm-rvh2-c87w",
+          "is_pre_cutoff": true,
+          "notes": "GHSA-pjwm-rvh2-c87w. Advisory source independent from the GitHub issue."
+        }
+      ],
+      "first_verifiable_public_signal": {
+        "url": "https://github.com/faisalman/ua-parser-js/issues/536",
+        "date": "2021-10-22",
+        "date_source_url": "https://github.com/faisalman/ua-parser-js/issues/536",
+        "source_type": "github_issue"
+      },
+      "advisory_sources": [
+        {
+          "url": "https://github.com/advisories/GHSA-pjwm-rvh2-c87w",
+          "published_date": "2021-10-22",
+          "date_source_url": "https://github.com/advisories/GHSA-pjwm-rvh2-c87w",
+          "type": "github_advisory"
+        }
+      ],
+      "current_osv_result": {
+        "label": "CURRENT (not pre-cutoff)",
+        "note": "OSV data as of 2026-10-24.",
+        "vuln_ids": ["GHSA-pjwm-rvh2-c87w"],
+        "source_url": "https://osv.dev/vulnerability/GHSA-pjwm-rvh2-c87w"
+      },
+      "expected_signals": {
+        "min_independent_sources": 2,
+        "expected_status_at_cutoff": "CRITICAL",
+        "notes": "Two independent sources: maintainer issue (github.com) + GHSA (github.com/advisories — same registrable domain but advisory type). Note: both are github.com — only 1 registrable domain. However the GHSA constitutes a verified advisory source. Status should be HIGH with advisory corroboration. Actual CRITICAL needs a second distinct registrable domain."
+      },
+      "scoring_note": "github.com and github.com/advisories share the same registrable domain. Per rules, independent_sources=1. Status should be WATCH/HIGH depending on version confirmation but NOT CRITICAL without a second distinct domain.",
+      "false_positive_risk": "very_low",
+      "version_match_evidence": "Version 0.7.29 explicitly named as the malicious version in both sources.",
+      "version_match_evidence_url": "https://github.com/faisalman/ua-parser-js/issues/536"
+    },
+    {
+      "id": "colors-faker-2022",
+      "label": "colors.js / faker.js sabotage (2022)",
+      "package": "colors",
+      "affected_version": "1.4.44-liberty-2",
+      "ecosystem": "npm",
+      "cutoff_date": "2022-01-10",
+      "notes": "On 2022-01-07, the maintainer Marak Squires intentionally published a breaking version of colors.js (1.4.44-liberty-2) and faker.js (6.6.6) that output garbage text. This was protest behavior (protestware), not a security vulnerability in the traditional sense — no credentials stolen, no remote code execution. Downstream projects were affected. OPTIONAL case: include only if evidence is clearly verifiable.",
+      "timeline": [
+        {
+          "event": "Sabotaged colors 1.4.44-liberty-2 published to npm",
+          "date": "2022-01-07",
+          "date_source_url": "https://github.com/Marak/colors.js/issues/285",
+          "is_pre_cutoff": true,
+          "notes": "Date from npm publish timestamp and GitHub issue."
+        },
+        {
+          "event": "GitHub issue #285 identifying the sabotage",
+          "date": "2022-01-07",
+          "date_source_url": "https://github.com/Marak/colors.js/issues/285",
+          "url": "https://github.com/Marak/colors.js/issues/285",
+          "is_pre_cutoff": true,
+          "notes": "First verifiable public discussion."
+        }
+      ],
+      "first_verifiable_public_signal": {
+        "url": "https://github.com/Marak/colors.js/issues/285",
+        "date": "2022-01-07",
+        "date_source_url": "https://github.com/Marak/colors.js/issues/285",
+        "source_type": "github_issue"
+      },
+      "advisory_sources": [],
+      "current_osv_result": {
+        "label": "CURRENT (not pre-cutoff)",
+        "note": "OSV data as of 2026-10-24. Check OSV for any advisory IDs.",
+        "vuln_ids": null,
+        "source_url": null
+      },
+      "expected_signals": {
+        "min_independent_sources": 1,
+        "expected_status_at_cutoff": "WATCH",
+        "notes": "Protestware — intentional breakage, not a supply chain malware injection. One verified source pre-cutoff. Status should be WATCH (1 independent source). Severity depends on downstream impact assessment."
+      },
+      "false_positive_risk": "medium",
+      "version_match_evidence": "Version 1.4.44-liberty-2 is the sabotaged version, explicitly named in the GitHub issue.",
+      "version_match_evidence_url": "https://github.com/Marak/colors.js/issues/285",
+      "optional": true
+    }
+  ],
+  "benign_controls": [
+    {
+      "id": "lodash-clean-4.17.21",
+      "label": "lodash 4.17.21 — patched version, clean control",
+      "package": "lodash",
+      "version": "4.17.21",
+      "ecosystem": "npm",
+      "cutoff_date": "2021-03-01",
+      "notes": "lodash 4.17.21 was released on 2021-02-20 to patch CVE-2021-23337 (command injection) and CVE-2020-28500 (ReDoS) present in earlier versions. As of the cutoff, 4.17.21 is the patched safe version. Expected result: INFO or clean, no HIGH/CRITICAL. This tests that the scorer does NOT raise a false alert for a patched version.",
+      "expected_status": "INFO",
+      "expected_in_osv": false,
+      "notes_on_osv": "CVEs CVE-2021-23337 and CVE-2020-28500 affect versions BEFORE 4.17.21; 4.17.21 is the fix. An OSV lookup for 4.17.21 should return not_affected.",
+      "false_positive_risk": "The main risk is that search results about lodash vulnerabilities (which are about older versions) could be misclassified as affecting 4.17.21. The version_match field in Signal must be 'not_affected' or 'unknown' in this case.",
+      "version_match_evidence": "NVD and GitHub Advisory for CVE-2021-23337 state the fix is in 4.17.21.",
+      "version_match_evidence_url": "https://nvd.nist.gov/vuln/detail/CVE-2021-23337"
+    },
+    {
+      "id": "chalk-clean-5.3.0",
+      "label": "chalk 5.3.0 — benign popular package, no known issues",
+      "package": "chalk",
+      "version": "5.3.0",
+      "ecosystem": "npm",
+      "cutoff_date": "2023-08-01",
+      "notes": "chalk is a widely used terminal string styling library. Version 5.3.0 released 2023-02-21. As of the cutoff there are no known security advisories. Expected result: clean / INFO. Tests that a popular but benign package does not trigger false alerts.",
+      "expected_status": "INFO",
+      "expected_in_osv": false,
+      "notes_on_osv": "No OSV advisories for chalk 5.3.0 as of 2026-10-24.",
+      "false_positive_risk": "Low. chalk has no history of security incidents. Any signals found would likely be irrelevant.",
+      "version_match_evidence": null,
+      "version_match_evidence_url": null
+    },
+    {
+      "id": "express-clean-4.18.2",
+      "label": "express 4.18.2 — widely used, no known supply-chain issues",
+      "package": "express",
+      "version": "4.18.2",
+      "ecosystem": "npm",
+      "cutoff_date": "2023-01-01",
+      "notes": "express 4.18.2 released 2022-10-08. No known supply chain compromise or critical vulnerability specifically for this version at cutoff. Tests scorer against a major framework version that generates lots of search noise without true positives.",
+      "expected_status": "INFO",
+      "expected_in_osv": false,
+      "notes_on_osv": "No critical advisories for express 4.18.2 at cutoff. Minor dependency updates exist but are not critical.",
+      "false_positive_risk": "Medium — high search volume means many tangential results. Scorer must correctly reject them via version_match and credibility checks.",
+      "version_match_evidence": null,
+      "version_match_evidence_url": null
+    }
+  ],
+  "evaluation_methodology": {
+    "independence_check": "Two sources are independent only if they have different registrable domains AND is_original_report=True. Reposts and subdomains of the same registrable domain count as one.",
+    "pre_cutoff_signal_definition": "A signal is pre-cutoff only if its URL's publication date is before or on the cutoff_date AND the URL resolves to content that was verifiably published then (not just a current page).",
+    "osv_labelling": "All OSV results obtained during evaluation are labelled CURRENT and dated. They are shown for reference but must NOT be used as pre-cutoff evidence unless the advisory date is before the cutoff.",
+    "scoring_validation": "For each case, run build_finding() with only pre-cutoff signals. Compare status and confidence to expected_status. Record false positives (alerts on benign controls) and false negatives (missed true incidents).",
+    "replay_caveat": "A date-filtered search returns pages that exist NOW and have a published_date before the cutoff. This is an approximation: pages may have been edited since, and some pre-cutoff content may no longer be accessible. Results are indicative, not a perfect historical reconstruction."
+  }
+}

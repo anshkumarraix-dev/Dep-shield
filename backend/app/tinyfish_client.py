@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+from datetime import timezone
 import os
+import time
+import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -21,24 +24,25 @@ except ImportError:
         reserve_tinyfish_request = None
 
 try:
-    from app.models import ActivityEvent as _ActivityEvent  # type: ignore
-    if "event_type" not in getattr(_ActivityEvent, "model_fields", {}) and not hasattr(_ActivityEvent, "event_type"):
-        raise ImportError("ActivityEvent lacks event_type")
-    ActivityEvent = _ActivityEvent
-except (ImportError, AttributeError):
-    try:
-        from backend.app.models import ActivityEvent as _ActivityEvent  # type: ignore
-        if "event_type" not in getattr(_ActivityEvent, "model_fields", {}) and not hasattr(_ActivityEvent, "event_type"):
-            raise ImportError("ActivityEvent lacks event_type")
-        ActivityEvent = _ActivityEvent
-    except (ImportError, AttributeError):
-        @dataclass
-        class ActivityEvent:
-            event_type: str
-            details: Dict[str, Any] = field(default_factory=dict)
-            timestamp: str = field(
-                default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat()
-            )
+    from app.models import (
+        ActivityEvent,
+        Emit,
+        IssueItem,
+        PageContent,
+        ResearchResult,
+        Source,
+        SourceType,
+    )
+except ImportError:
+    from backend.app.models import (
+        ActivityEvent,
+        Emit,
+        IssueItem,
+        PageContent,
+        ResearchResult,
+        Source,
+        SourceType,
+    )
 
 
 # Budget & Safety Constants
@@ -167,7 +171,25 @@ class TinyFishClient:
         return self._sdk_client
 
     def _record_event(self, event_type: str, details: Dict[str, Any]) -> ActivityEvent:
-        event = ActivityEvent(event_type=event_type, details=details)
+        op = details.get("operation", "system")
+        api = op if op in ("search", "fetch", "agent", "monitor", "research") else "system"
+        if "cache" in event_type:
+            status = "cached"
+        elif "success" in event_type:
+            status = "ok"
+        elif "error" in event_type or "failure" in event_type or "timeout" in event_type:
+            status = "error"
+        else:
+            status = "start"
+
+        detail_msg = details.get("error") or details.get("cache_key") or f"{event_type}: {op}"
+        event = ActivityEvent(
+            api=api,
+            action=str(op),
+            status=status,
+            target=str(details.get("cache_key", op))[:100],
+            detail=str(detail_msg)[:200],
+        )
         self.activity_log.append(event)
         return event
 
@@ -551,4 +573,740 @@ def cache_get(key: str) -> Optional[Any]:
 
 def cache_set(key: str, val: Any, ttl_s: int = 3600) -> None:
     _mem_cache[key] = val
+
+
+# ---------------------------------------------------------------------------
+# Module-level client instance and helpers
+# ---------------------------------------------------------------------------
+_module_client: Optional[TinyFishClient] = None
+
+
+def get_module_client() -> TinyFishClient:
+    """Returns or lazily creates a module-level TinyFishClient (env-based, ledger-gated)."""
+    global _module_client
+    if _module_client is None:
+        _module_client = TinyFishClient()
+    return _module_client
+
+
+def set_module_client(client: Optional[TinyFishClient]) -> None:
+    """Sets or clears the module-level client (used for testing and dependency injection)."""
+    global _module_client
+    _module_client = client
+
+
+def _classify_source_url(url: str) -> SourceType:
+    """Maps a URL to its appropriate SourceType category."""
+    u = url.lower()
+    if "github.com" in u and "/issues" in u:
+        return "github_issue"
+    if "advisory" in u or "ghsa-" in u or "cve-" in u or "snyk.io" in u or "osv.dev" in u:
+        return "advisory"
+    if "bleepingcomputer.com" in u or "thehackernews.com" in u or "news" in u:
+        return "news"
+    if "medium.com" in u or "blog" in u or "substack.com" in u:
+        return "blog"
+    if "ycombinator.com" in u or "reddit.com" in u or "forum" in u or "stackoverflow.com" in u:
+        return "forum"
+    if "changelog" in u or "release" in u:
+        return "changelog"
+    return "other"
+
+
+# ===========================================================================
+# Contract functions matching AGENTS.md shared contracts
+# ===========================================================================
+
+async def search_signals(
+    package: str,
+    version: str,
+    *,
+    before_date: str | None = None,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> list[Source]:
+    """
+    Search public web sources for security signals and advisories.
+    Contract from AGENTS.md:
+    search_signals(package: str, version: str, *, before_date: str | None = None,
+                   scan_id: str | None = None, emit: Emit | None = None) -> list[Source]
+
+    - At most 2 Search queries per package.
+    - before_date is only a query filter/hint and does not guarantee a complete historical web snapshot.
+    - Returns empty list on BudgetExceeded / LiveCallsDisabled / Ledger errors without raising.
+    """
+    # Note: before_date is only a query filter/hint and does not guarantee
+    # a verified, complete historical web snapshot.
+    target = f'"{package}" security advisory'
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="search",
+                action="query",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    sources: list[Source] = []
+    seen_urls: set[str] = set()
+
+    # Up to 2 queries per package
+    queries = [
+        f'"{package}" security OR exploit OR advisory',
+        f'"{package}" "{version}" OR vulnerability',
+    ]
+
+    try:
+        for q in queries[:MAX_SEARCHES_PER_PACKAGE]:
+            kw: Dict[str, Any] = {}
+            if before_date:
+                kw["before_date"] = before_date
+            res = await client.search(q, **kw)
+
+            raw_results = None
+            if isinstance(res, dict):
+                raw_results = res.get("results") or res.get("data")
+            else:
+                raw_results = getattr(res, "results", None) or getattr(res, "data", None)
+
+            if isinstance(raw_results, list):
+                for item in raw_results:
+                    url = None
+                    title = ""
+                    snippet = ""
+                    pub_date_str = None
+
+                    if isinstance(item, dict):
+                        url = item.get("url") or item.get("final_url")
+                        title = item.get("title") or ""
+                        snippet = item.get("snippet") or item.get("description") or ""
+                        pub_date_str = item.get("date") or item.get("published_date")
+                    else:
+                        url = getattr(item, "url", None) or getattr(item, "final_url", None)
+                        title = getattr(item, "title", "") or ""
+                        snippet = getattr(item, "snippet", "") or getattr(item, "description", "") or ""
+                        pub_date_str = getattr(item, "date", None) or getattr(item, "published_date", None)
+
+                    if not url or not isinstance(url, str):
+                        continue
+                    url = url.strip()
+                    if url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+
+                    # Extract hostname only for domain
+                    parsed_domain = ""
+                    try:
+                        parsed_domain = urllib.parse.urlparse(url).netloc.lower()
+                    except Exception:
+                        parsed_domain = ""
+
+                    # Parse published_at only if really provided
+                    published_at = None
+                    if pub_date_str and isinstance(pub_date_str, str):
+                        try:
+                            published_at = datetime.datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
+                        except Exception:
+                            published_at = None
+
+                    src_type = _classify_source_url(url)
+
+                    sources.append(
+                        Source(
+                            url=url,
+                            title=str(title)[:200],
+                            domain=parsed_domain,
+                            source_type=src_type,
+                            published_at=published_at,
+                            fetched_at=datetime.datetime.now(timezone.utc),
+                            snippet=str(snippet)[:300],
+                            discovered_by="search",
+                        )
+                    )
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="search",
+                    action="query",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail=f"Found {len(sources)} sources",
+                )
+            )
+        return sources
+
+    except (BudgetExceededError, LiveCallsDisabledError, LedgerUnavailableError, TinyFishTimeoutError, TinyFishError, Exception) as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        err_msg = str(exc)[:200]
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="search",
+                    action="query",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=err_msg,
+                )
+            )
+        return []
+
+
+async def fetch_pages(
+    sources: list[Source],
+    *,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> list[PageContent]:
+    """
+    Fetch evidence page contents for given sources.
+    Contract from AGENTS.md:
+    fetch_pages(sources: list[Source], *, scan_id: str | None = None,
+                emit: Emit | None = None) -> list[PageContent]
+
+    - One batch Fetch for at most the given sources.
+    - Text is treated as untrusted and truncated.
+    - Returns empty list on BudgetExceeded / LiveCallsDisabled / Ledger errors without raising.
+    """
+    if not sources:
+        return []
+
+    target = f"{len(sources)} URLs"
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="fetch",
+                action="get_contents",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    urls = [s.url for s in sources if s.url]
+    if not urls:
+        return []
+
+    try:
+        res = await client.fetch(urls=urls)
+
+        raw_results = None
+        if isinstance(res, dict):
+            raw_results = res.get("results") or res.get("data")
+        else:
+            raw_results = getattr(res, "results", None) or getattr(res, "data", None)
+
+        if not isinstance(raw_results, list):
+            if isinstance(res, dict) and ("url" in res or "text" in res):
+                raw_results = [res]
+            else:
+                raw_results = []
+
+        source_by_url = {s.url: s for s in sources}
+        pages: list[PageContent] = []
+
+        for item in raw_results:
+            u = None
+            text = ""
+            title = ""
+            pub_date = None
+
+            if isinstance(item, dict):
+                u = item.get("url") or item.get("final_url")
+                text = item.get("text") or item.get("content") or item.get("markdown") or ""
+                title = item.get("title") or ""
+                pub_date = item.get("published_date") or item.get("date")
+            else:
+                u = getattr(item, "url", None) or getattr(item, "final_url", None)
+                text = getattr(item, "text", "") or getattr(item, "content", "") or getattr(item, "markdown", "") or ""
+                title = getattr(item, "title", "") or ""
+                pub_date = getattr(item, "published_date", None) or getattr(item, "date", None)
+
+            if not u:
+                continue
+
+            matching_source = source_by_url.get(u)
+            if not title and matching_source:
+                title = matching_source.title
+
+            parsed_pub_date = None
+            if pub_date and isinstance(pub_date, str):
+                try:
+                    parsed_pub_date = datetime.datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+                except Exception:
+                    parsed_pub_date = None
+            elif matching_source:
+                parsed_pub_date = matching_source.published_at
+
+            clean_text = str(text)[:20000]
+
+            pages.append(
+                PageContent(
+                    url=u,
+                    title=str(title)[:200],
+                    text=clean_text,
+                    fetched_at=datetime.datetime.now(timezone.utc),
+                    published_at=parsed_pub_date,
+                    discovered_by="fetch",
+                )
+            )
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="fetch",
+                    action="get_contents",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail=f"Fetched {len(pages)} pages",
+                )
+            )
+        return pages
+
+    except (BudgetExceededError, LiveCallsDisabledError, LedgerUnavailableError, TinyFishTimeoutError, TinyFishError, Exception) as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        err_msg = str(exc)[:200]
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="fetch",
+                    action="get_contents",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=err_msg,
+                )
+            )
+        return []
+
+
+async def agent_scan_issues(
+    issues_url: str,
+    *,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> list[IssueItem]:
+    """
+    Run selective agent scan against a repository issues URL.
+    Contract from AGENTS.md:
+    agent_scan_issues(issues_url: str, *, scan_id: str | None = None,
+                      emit: Emit | None = None) -> list[IssueItem]
+    """
+    target = issues_url[:100]
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="agent",
+                action="run",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    try:
+        goal = f"Scan repository issues at {issues_url} for security signals, malicious code, or backdoors."
+        res = await client.run_agent(goal=goal, url=issues_url)
+
+        items: list[IssueItem] = []
+        raw_issues = None
+        if isinstance(res, dict):
+            raw_issues = res.get("issues") or res.get("result", {}).get("issues")
+        else:
+            result_obj = getattr(res, "result", None)
+            if isinstance(result_obj, dict):
+                raw_issues = result_obj.get("issues")
+            else:
+                raw_issues = getattr(res, "issues", None)
+
+        if isinstance(raw_issues, list):
+            for raw in raw_issues:
+                if isinstance(raw, dict):
+                    t = raw.get("title", "")
+                    u = raw.get("url", "")
+                    o = raw.get("opened", "")
+                    s = raw.get("snippet", "")
+                else:
+                    t = getattr(raw, "title", "")
+                    u = getattr(raw, "url", "")
+                    o = getattr(raw, "opened", "")
+                    s = getattr(raw, "snippet", "")
+                if t or u:
+                    items.append(
+                        IssueItem(
+                            title=str(t)[:200],
+                            url=str(u)[:500],
+                            opened=str(o)[:50],
+                            snippet=str(s)[:300],
+                        )
+                    )
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="agent",
+                    action="run",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail=f"Found {len(items)} issues",
+                )
+            )
+        return items
+
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="agent",
+                    action="run",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=str(exc)[:200],
+                )
+            )
+        return []
+
+
+async def create_topic_monitor(
+    package: str,
+    *,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> str:
+    """
+    Create a topic monitor for a package.
+    Contract from AGENTS.md:
+    create_topic_monitor(package: str, *, scan_id: str | None = None,
+                         emit: Emit | None = None) -> str
+    """
+    target = package[:100]
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="monitor",
+                action="create_monitor",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    try:
+        res = await client.create_monitor(
+            type="search",
+            config={"query": f"{package} security advisory"},
+        )
+        monitor_id = getattr(res, "id", None)
+        if monitor_id is None and isinstance(res, dict):
+            monitor_id = res.get("id") or res.get("monitor", {}).get("id")
+        if monitor_id is None:
+            monitor_id = str(res)
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="monitor",
+                    action="create_monitor",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail=f"Created monitor {monitor_id}",
+                )
+            )
+        return str(monitor_id)
+
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="monitor",
+                    action="create_monitor",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=str(exc)[:200],
+                )
+            )
+        return ""
+
+
+async def run_monitor_now(
+    monitor_id: str,
+    *,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> dict:
+    """
+    Run a monitor on demand.
+    Contract from AGENTS.md:
+    run_monitor_now(monitor_id: str, *, scan_id: str | None = None,
+                    emit: Emit | None = None) -> dict
+    """
+    target = monitor_id[:100]
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="monitor",
+                action="run_monitor",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    try:
+        res = await client.run_monitor(monitor_id=monitor_id)
+        out: dict = {}
+        if isinstance(res, dict):
+            out = res
+        elif hasattr(res, "model_dump"):
+            out = res.model_dump(mode="json")
+        else:
+            out = {"monitor_id": monitor_id, "result": str(res)}
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="monitor",
+                    action="run_monitor",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail="Monitor run completed",
+                )
+            )
+        return out
+
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="monitor",
+                    action="run_monitor",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=str(exc)[:200],
+                )
+            )
+        return {"error": str(exc)[:200], "monitor_id": monitor_id}
+
+
+async def pause_topic_monitor(
+    monitor_id: str,
+    *,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> bool:
+    """
+    Pause a topic monitor. Surfaces failure by returning False.
+    Contract from AGENTS.md:
+    pause_topic_monitor(monitor_id: str, *, scan_id: str | None = None,
+                        emit: Emit | None = None) -> bool
+    """
+    target = f"pause:{monitor_id}"[:100]
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="monitor",
+                action="run",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    try:
+        await client.pause_monitor(monitor_id=monitor_id)
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="monitor",
+                    action="run",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail="Monitor paused",
+                )
+            )
+        return True
+
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="monitor",
+                    action="run",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=str(exc)[:200],
+                )
+            )
+        return False
+
+
+async def research_report(
+    query: str,
+    *,
+    scan_id: str | None = None,
+    emit: Emit | None = None,
+) -> ResearchResult:
+    """
+    Run selective research on a query.
+    Contract from AGENTS.md:
+    research_report(query: str, *, scan_id: str | None = None,
+                    emit: Emit | None = None) -> ResearchResult
+    """
+    target = query[:100]
+    start_time = time.perf_counter()
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="research",
+                action="run_research",
+                target=target,
+                status="start",
+            )
+        )
+
+    client = get_module_client()
+    try:
+        res = await client.run_research(query=query)
+
+        run_id = getattr(res, "research_run_id", None) or getattr(res, "id", "")
+        if isinstance(res, dict):
+            run_id = res.get("research_run_id") or res.get("id") or ""
+        run_id = str(run_id)
+
+        summary = ""
+        if hasattr(res, "deep_result") and getattr(res, "deep_result"):
+            dr = res.deep_result
+            summary = dr.get("result", "") if isinstance(dr, dict) else getattr(dr, "result", "")
+        elif hasattr(res, "summary"):
+            summary = getattr(res, "summary", "")
+        elif isinstance(res, dict):
+            deep_res = res.get("deep_result")
+            if isinstance(deep_res, dict):
+                summary = deep_res.get("result", "")
+            else:
+                summary = res.get("summary", "")
+
+        if not summary:
+            summary = f"Research report completed for query: {query}"
+
+        sources: list[Source] = []
+        evidence = getattr(res, "evidence", None)
+        if isinstance(res, dict) and evidence is None:
+            evidence = res.get("evidence")
+
+        if isinstance(evidence, list):
+            for ev in evidence:
+                u = ev.get("url") if isinstance(ev, dict) else getattr(ev, "url", None)
+                t = ev.get("title") if isinstance(ev, dict) else getattr(ev, "title", "")
+                snip = ""
+                claims = ev.get("claims") if isinstance(ev, dict) else getattr(ev, "claims", None)
+                if isinstance(claims, list) and claims:
+                    first_claim = claims[0]
+                    snip = first_claim.get("snippet", "") if isinstance(first_claim, dict) else getattr(first_claim, "snippet", "")
+                if u:
+                    domain = ""
+                    try:
+                        domain = urllib.parse.urlparse(u).netloc.lower()
+                    except Exception:
+                        domain = ""
+                    sources.append(
+                        Source(
+                            url=u,
+                            title=str(t or "")[:200],
+                            domain=domain,
+                            snippet=str(snip)[:300],
+                            source_type="advisory",
+                            discovered_by="research",
+                        )
+                    )
+
+        result = ResearchResult(
+            run_id=run_id,
+            summary=str(summary)[:5000],
+            sources=sources,
+        )
+
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="research",
+                    action="run_research",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail="Research completed",
+                )
+            )
+        return result
+
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        err_msg = str(exc)[:200]
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="research",
+                    action="run_research",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=err_msg,
+                )
+            )
+        return ResearchResult(
+            run_id="",
+            summary=f"Research unavailable: {err_msg}",
+            sources=[],
+        )
 

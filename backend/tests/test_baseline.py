@@ -14,8 +14,10 @@ import pytest
 # Try importing from app.baseline first, fallback to backend.app.baseline
 try:
     from app.baseline import (
-        osv_lookup,
-        npm_metadata,
+        _osv_lookup as osv_lookup,
+        _npm_metadata as npm_metadata,
+        osv_lookup as contract_osv_lookup,
+        npm_metadata as contract_npm_metadata,
         OsvResult,
         NpmInfo,
         ActivityEvent,
@@ -26,8 +28,10 @@ try:
     )
 except ImportError:
     from backend.app.baseline import (
-        osv_lookup,
-        npm_metadata,
+        _osv_lookup as osv_lookup,
+        _npm_metadata as npm_metadata,
+        osv_lookup as contract_osv_lookup,
+        npm_metadata as contract_npm_metadata,
         OsvResult,
         NpmInfo,
         ActivityEvent,

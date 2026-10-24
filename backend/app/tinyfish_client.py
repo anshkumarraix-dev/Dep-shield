@@ -537,3 +537,18 @@ class TinyFishClient:
         """
         sdk = self.get_sdk_client()
         return await self._call("wallet_balance", sdk.wallet.get, timeout=timeout)
+
+
+# ---------------------------------------------------------------------------
+# Module-level cache helpers (for compatibility with classifier and tests)
+# ---------------------------------------------------------------------------
+_mem_cache: dict[str, Any] = {}
+
+
+def cache_get(key: str) -> Optional[Any]:
+    return _mem_cache.get(key)
+
+
+def cache_set(key: str, val: Any, ttl_s: int = 3600) -> None:
+    _mem_cache[key] = val
+

@@ -258,7 +258,7 @@ def test_adversarial_key_redaction_on_exception(monkeypatch, capsys):
     Adversarial test: Google GenAI client raises an exception containing the secret key.
     The exception text in stderr MUST redact the key.
     """
-    secret_key = "AIzaSySecretLeakAttackKey_9876543210123"
+    secret_key = "AIzaSyFakeTestDummyKeyForRedaction1234"
     monkeypatch.setenv("GEMINI_API_KEY", secret_key)
     monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: None)
 

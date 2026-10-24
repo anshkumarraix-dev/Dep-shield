@@ -16,6 +16,10 @@ import {
   Database,
   SlidersHorizontal,
   X,
+  AlertOctagon,
+  AlertTriangle,
+  Eye,
+  Info,
 } from 'lucide-react';
 
 interface FindingsTableProps {
@@ -25,26 +29,33 @@ interface FindingsTableProps {
 }
 
 export function RiskBadge({ level }: { level: RiskLevel }) {
-  const styles: Record<RiskLevel, { bg: string; text: string; border: string }> = {
+  const styles: Record<
+    RiskLevel,
+    { bg: string; text: string; border: string; icon: React.ReactNode }
+  > = {
     CRITICAL: {
       bg: 'bg-rose-500/15',
       text: 'text-rose-400 font-bold',
       border: 'border-rose-500/30',
+      icon: <AlertOctagon className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
     HIGH: {
       bg: 'bg-orange-500/15',
       text: 'text-orange-400 font-bold',
       border: 'border-orange-500/30',
+      icon: <AlertTriangle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
     WATCH: {
       bg: 'bg-amber-500/15',
       text: 'text-amber-400 font-semibold',
       border: 'border-amber-500/30',
+      icon: <Eye className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
     INFO: {
       bg: 'bg-blue-500/15',
       text: 'text-blue-400 font-medium',
       border: 'border-blue-500/30',
+      icon: <Info className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
   };
 
@@ -52,10 +63,11 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${style.bg} ${style.text} ${style.border}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${style.bg} ${style.text} ${style.border}`}
       role="status"
     >
-      {level}
+      {style.icon}
+      <span>{level}</span>
     </span>
   );
 }

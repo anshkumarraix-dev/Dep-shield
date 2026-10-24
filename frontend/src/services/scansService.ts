@@ -1,0 +1,369 @@
+import { envConfig } from '@/config/env';
+import { apiFetch } from './apiClient';
+import {
+  mockSummaryMetrics,
+  mockFindings,
+  mockActivity,
+  MOCK_SCAN_STAGES,
+} from '@/mocks/mockData';
+import {
+  SecurityFinding,
+  ScanSummaryMetrics,
+  ActivityEvent,
+  FindingsFilterOptions,
+  LockfileParsedSummary,
+  ScanProgressState,
+  resolveOsvState,
+} from '@/types';
+
+/**
+ * Normalizes backend findings payload (supporting both snake_case from FastAPI
+ * and camelCase models) to ensure seamless API integration.
+ */
+export function normalizeFinding(raw: Record<string, unknown>): SecurityFinding {
+  const in_osv = raw.in_osv !== undefined ? (raw.in_osv as boolean | null) : null;
+  const isDirect =
+    raw.is_direct !== undefined
+      ? Boolean(raw.is_direct)
+      : raw.dependencyType === 'direct' || raw.dependency_type === 'direct';
+
+  return {
+    id: String(raw.id || `FIND-${Math.random().toString(36).substring(2, 9)}`),
+    title: String(raw.title || raw.name || 'Security Finding'),
+    packageName: String(raw.packageName || raw.package_name || 'unknown-package'),
+    installedVersion: String(raw.installedVersion || raw.installed_version || '0.0.0'),
+    fixedVersion:
+      raw.fixedVersion !== undefined
+        ? String(raw.fixedVersion)
+        : raw.fixed_version !== undefined
+        ? String(raw.fixed_version)
+        : undefined,
+    affectedRange:
+      raw.affectedRange !== undefined
+        ? String(raw.affectedRange)
+        : raw.affected_range !== undefined
+        ? String(raw.affected_range)
+        : undefined,
+    riskLevel: (raw.riskLevel || raw.risk_level || 'INFO') as SecurityFinding['riskLevel'],
+    status: (raw.status || 'OPEN') as SecurityFinding['status'],
+    dependencyType: isDirect ? 'direct' : 'transitive',
+    dependencyPath: Array.isArray(raw.dependencyPath || raw.dependency_path)
+      ? ((raw.dependencyPath || raw.dependency_path) as string[])
+      : [],
+    confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.85,
+    sourceCount:
+      typeof raw.sourceCount === 'number'
+        ? raw.sourceCount
+        : typeof raw.source_count === 'number'
+        ? raw.source_count
+        : 1,
+    riskExplanation: String(raw.riskExplanation || raw.risk_explanation || raw.description || ''),
+    in_osv,
+    osvLookupState: resolveOsvState(in_osv),
+    advisoryId:
+      raw.advisoryId !== undefined
+        ? String(raw.advisoryId)
+        : raw.advisory_id !== undefined
+        ? String(raw.advisory_id)
+        : raw.cve_id !== undefined
+        ? String(raw.cve_id)
+        : undefined,
+    cvssScore:
+      typeof raw.cvssScore === 'number'
+        ? raw.cvssScore
+        : typeof raw.cvss_score === 'number'
+        ? raw.cvss_score
+        : undefined,
+    firstSignalAt:
+      raw.firstSignalAt !== undefined
+        ? (raw.firstSignalAt as string | null)
+        : raw.first_signal_at !== undefined
+        ? (raw.first_signal_at as string | null)
+        : null,
+    officialAdvisoryAt:
+      raw.officialAdvisoryAt !== undefined
+        ? (raw.officialAdvisoryAt as string | null)
+        : raw.official_advisory_at !== undefined
+        ? (raw.official_advisory_at as string | null)
+        : null,
+    cvePublishedAt:
+      raw.cvePublishedAt !== undefined
+        ? (raw.cvePublishedAt as string | null)
+        : raw.cve_published_at !== undefined
+        ? (raw.cve_published_at as string | null)
+        : null,
+    versionMatchExplanation: String(
+      raw.versionMatchExplanation ||
+        raw.version_match_explanation ||
+        'Version identified via manifest inspection.'
+    ),
+    evidenceQuotes: Array.isArray(raw.evidenceQuotes || raw.evidence_quotes)
+      ? ((raw.evidenceQuotes || raw.evidence_quotes) as Record<string, unknown>[]).map((q) => ({
+          quote: String(q.quote || ''),
+          context: String(q.context || ''),
+          source: String(q.source || ''),
+          isSynthetic: Boolean(q.isSynthetic ?? q.is_synthetic ?? false),
+          publishedAt:
+            q.publishedAt !== undefined
+              ? (q.publishedAt as string | null)
+              : q.published_at !== undefined
+              ? (q.published_at as string | null)
+              : null,
+          exactQuoteVerified: Boolean(q.exactQuoteVerified ?? q.exact_quote_verified ?? true),
+        }))
+      : [],
+    sources: Array.isArray(raw.sources)
+      ? (raw.sources as Record<string, unknown>[]).map((s) => ({
+          name: String(s.name || 'Unknown Source'),
+          sourceType: (s.sourceType || s.source_type || 'OSV Database') as SecurityFinding['sources'][number]['sourceType'],
+          safeUrl: s.safeUrl ? String(s.safeUrl) : s.safe_url ? String(s.safe_url) : undefined,
+          publishedAt:
+            s.publishedAt !== undefined
+              ? (s.publishedAt as string | null)
+              : s.published_at !== undefined
+              ? (s.published_at as string | null)
+              : null,
+          retrievedAt: String(s.retrievedAt || s.retrieved_at || new Date().toISOString()),
+          isOriginalSource: Boolean(s.isOriginalSource ?? s.is_original_source ?? true),
+          provenanceNote: s.provenanceNote
+            ? String(s.provenanceNote)
+            : s.provenance_note
+            ? String(s.provenance_note)
+            : undefined,
+        }))
+      : [],
+    remediationGuidance: String(
+      raw.remediationGuidance || raw.remediation_guidance || 'Audit dependency in package manifest.'
+    ),
+    isSyntheticDemo: Boolean(raw.isSyntheticDemo ?? raw.is_synthetic ?? false),
+    detectedAt: String(raw.detectedAt || raw.detected_at || new Date().toISOString()),
+  };
+}
+
+export const scansService = {
+  /**
+   * Fetches latest scan summary metrics
+   */
+  async getSummaryMetrics(): Promise<ScanSummaryMetrics> {
+    if (envConfig.useMocks) {
+      return Promise.resolve(mockSummaryMetrics);
+    }
+    return apiFetch<ScanSummaryMetrics>('/api/v1/scans/summary');
+  },
+
+  /**
+   * Fetches security findings with filters (riskLevel, dependencyType, searchQuery)
+   */
+  async getFindings(filters?: FindingsFilterOptions): Promise<SecurityFinding[]> {
+    if (envConfig.useMocks) {
+      let filtered = [...mockFindings];
+
+      if (filters?.riskLevel && filters.riskLevel !== 'ALL') {
+        filtered = filtered.filter((f) => f.riskLevel === filters.riskLevel);
+      }
+
+      if (filters?.dependencyType && filters.dependencyType !== 'ALL') {
+        filtered = filtered.filter((f) => f.dependencyType === filters.dependencyType);
+      }
+
+      if (filters?.searchQuery && filters.searchQuery.trim()) {
+        const query = filters.searchQuery.toLowerCase().trim();
+        filtered = filtered.filter(
+          (f) =>
+            f.title.toLowerCase().includes(query) ||
+            f.packageName.toLowerCase().includes(query) ||
+            f.advisoryId?.toLowerCase().includes(query) ||
+            f.riskExplanation.toLowerCase().includes(query) ||
+            f.installedVersion.toLowerCase().includes(query)
+        );
+      }
+
+      return Promise.resolve(filtered);
+    }
+
+    const queryParams = new URLSearchParams();
+    if (filters?.searchQuery) queryParams.set('search', filters.searchQuery);
+    if (filters?.riskLevel && filters.riskLevel !== 'ALL') queryParams.set('risk', filters.riskLevel);
+    if (filters?.dependencyType && filters.dependencyType !== 'ALL') queryParams.set('type', filters.dependencyType);
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    const raw = await apiFetch<Record<string, unknown>[]>(`/api/v1/findings${queryString}`);
+    return Array.isArray(raw) ? raw.map(normalizeFinding) : [];
+  },
+
+  /**
+   * Fetches security audit and activity log
+   */
+  async getActivityFeed(): Promise<ActivityEvent[]> {
+    if (envConfig.useMocks) {
+      return Promise.resolve(mockActivity);
+    }
+    return apiFetch<ActivityEvent[]>('/api/v1/activity');
+  },
+
+  /**
+   * Runs a simulated bounded-progress scan client-side without calling external APIs.
+   * Invokes onProgress callback at every milestone.
+   */
+  async simulateScan(
+    lockfileSummary: LockfileParsedSummary,
+    onProgress: (state: ScanProgressState) => void
+  ): Promise<{
+    summary: ScanSummaryMetrics;
+    findings: SecurityFinding[];
+    activity: ActivityEvent[];
+  }> {
+    const startTime = Date.now();
+
+    for (let i = 0; i < MOCK_SCAN_STAGES.length; i++) {
+      const stage = MOCK_SCAN_STAGES[i];
+      onProgress({
+        stage: stage.stage,
+        stageLabel: stage.label,
+        progressPercent: stage.progressPercent,
+        currentMessage: stage.description,
+        elapsedMs: Date.now() - startTime,
+      });
+
+      // Realistic non-blocking simulated step delay (350ms per stage)
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+
+    // Dynamic metrics based on actual lockfile package counts
+    const totalDeps = lockfileSummary.totalPackagesDetected;
+    const directDeps = lockfileSummary.directDependenciesCount;
+    const transitiveDeps = lockfileSummary.transitiveDependenciesCount;
+
+    const dynamicSummary: ScanSummaryMetrics = {
+      totalDependenciesScanned: totalDeps,
+      directCount: directDeps,
+      transitiveCount: transitiveDeps,
+      criticalCount: 1,
+      highCount: 2,
+      watchCount: 2,
+      infoCount: 1,
+      shieldScore: 78,
+      osvMatchesCount: 3,
+      scannedAt: new Date().toISOString(),
+      isSyntheticDemo: true,
+    };
+
+    const dynamicActivity: ActivityEvent[] = [
+      {
+        id: `ACT-RUN-${Date.now()}-1`,
+        actionType: 'parsing',
+        title: `Ingested ${lockfileSummary.fileName} (v${lockfileSummary.lockfileVersion})`,
+        description: `[Simulated Run] Parsed ${totalDeps} packages (${directDeps} direct, ${transitiveDeps} transitive) for project "${lockfileSummary.projectName || 'depshield-demo'}".`,
+        timestamp: 'Just now',
+        targetPackage: lockfileSummary.fileName,
+        status: 'success',
+        isSimulated: true,
+      },
+      {
+        id: `ACT-RUN-${Date.now()}-2`,
+        actionType: 'osv_check',
+        title: 'OSV Batch Telemetry Correlated',
+        description: `[Simulated Run] Correlated ${totalDeps} dependency coordinates against synthetic OSV vulnerability corpus.`,
+        timestamp: 'Just now',
+        targetPackage: 'OSV Synthetic Index',
+        status: 'warning',
+        isSimulated: true,
+      },
+      {
+        id: `ACT-RUN-${Date.now()}-3`,
+        actionType: 'search',
+        title: 'Supply Chain Threat Signatures Scanned',
+        description: '[Simulated Run] Evaluated lifecycle hooks and behavioral anomalies across dependency graph.',
+        timestamp: 'Just now',
+        targetPackage: 'Threat Heuristics Engine',
+        status: 'info',
+        isSimulated: true,
+      },
+      ...mockActivity.slice(1),
+    ];
+
+    onProgress({
+      stage: 'completed',
+      stageLabel: 'Scan Completed',
+      progressPercent: 100,
+      currentMessage: `Analysis completed: ${totalDeps} packages scanned. 6 findings cataloged.`,
+      elapsedMs: Date.now() - startTime,
+    });
+
+    return {
+      summary: dynamicSummary,
+      findings: mockFindings,
+      activity: dynamicActivity,
+    };
+  },
+
+  /**
+   * Subscribes to live scan telemetry over Server-Sent Events (SSE).
+   * Compatible with FastAPI EventSource stream (GET /api/v1/scans/{scanId}/events).
+   * Automatically cleans up listeners on teardown.
+   */
+  subscribeToScanEvents(
+    scanId: string,
+    handlers: {
+      onProgress?: (progress: ScanProgressState) => void;
+      onFinding?: (finding: SecurityFinding) => void;
+      onActivity?: (event: ActivityEvent) => void;
+      onDone?: (summary: ScanSummaryMetrics) => void;
+      onError?: (error: Error) => void;
+    }
+  ): () => void {
+    if (envConfig.useMocks || typeof window === 'undefined') {
+      return () => {};
+    }
+
+    const sseUrl = `${envConfig.apiUrl.replace(/\/$/, '')}/api/v1/scans/${encodeURIComponent(scanId)}/events`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.addEventListener('progress', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as ScanProgressState;
+        handlers.onProgress?.(data);
+      } catch (err) {
+        console.warn('[DepShield SSE] Malformed progress event payload:', err);
+      }
+    });
+
+    eventSource.addEventListener('finding', (e: MessageEvent) => {
+      try {
+        const raw = JSON.parse(e.data) as Record<string, unknown>;
+        handlers.onFinding?.(normalizeFinding(raw));
+      } catch (err) {
+        console.warn('[DepShield SSE] Malformed finding event payload:', err);
+      }
+    });
+
+    eventSource.addEventListener('activity', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as ActivityEvent;
+        handlers.onActivity?.(data);
+      } catch (err) {
+        console.warn('[DepShield SSE] Malformed activity event payload:', err);
+      }
+    });
+
+    eventSource.addEventListener('done', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as ScanSummaryMetrics;
+        handlers.onDone?.(data);
+      } catch (err) {
+        console.warn('[DepShield SSE] Malformed done event payload:', err);
+      } finally {
+        eventSource.close();
+      }
+    });
+
+    eventSource.addEventListener('error', (e) => {
+      handlers.onError?.(new Error(`[DepShield SSE] Stream error: ${JSON.stringify(e)}`));
+      eventSource.close();
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  },
+};

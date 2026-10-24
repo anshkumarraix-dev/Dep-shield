@@ -1,0 +1,22 @@
+# secrets
+.env
+.env.*
+!.env.example
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+# node
+node_modules/
+.next/
+out/
+# local data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+.DS_Store
+.idea/
+.vscode/

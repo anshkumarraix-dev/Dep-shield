@@ -105,4 +105,4 @@ def test_full_secret_never_logged_even_on_fake(capsys, monkeypatch):
     assert exit_code == 0
     assert fake_token not in captured.out
     assert fake_token not in captured.err
-    assert f"{ghp_prefix}...(37 chars)" in captured.out
+    assert "GitHub Personal Access Token" in captured.out

@@ -23,6 +23,7 @@ export interface ScanStageInfo {
 export interface ParsedDependency {
   name: string;
   version: string;
+  type: 'direct' | 'transitive';
   direct: boolean;
   depPath: string[];
   analyzed: boolean; // True if prioritized in top <=4 deep investigation scope

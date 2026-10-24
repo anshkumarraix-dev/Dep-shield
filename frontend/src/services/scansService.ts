@@ -211,6 +211,14 @@ export const scansService = {
   },
 
   /**
+   * Retrieves single finding by ID
+   */
+  async getFindingById(id: string): Promise<SecurityFinding | null> {
+    const findings = await this.getFindings();
+    return findings.find((f) => f.id === id) || null;
+  },
+
+  /**
    * Fetches security audit and activity log
    */
   async getActivityFeed(): Promise<ActivityEvent[]> {
@@ -226,7 +234,7 @@ export const scansService = {
    */
   async simulateScan(
     lockfileSummary: LockfileParsedSummary,
-    onProgress: (state: ScanProgressState) => void
+    onProgress?: (state: ScanProgressState) => void
   ): Promise<{
     summary: ScanSummaryMetrics;
     findings: SecurityFinding[];
@@ -254,7 +262,7 @@ export const scansService = {
         contextualMessage = `Cataloging 6 demonstration findings with actionable developer next steps...`;
       }
 
-      onProgress({
+      onProgress?.({
         stage: stage.stage,
         stageLabel: stage.label,
         progressPercent: stage.progressPercent,
@@ -355,7 +363,7 @@ export const scansService = {
       },
     ];
 
-    onProgress({
+    onProgress?.({
       stage: 'completed',
       stageLabel: 'Scan Completed',
       progressPercent: 100,

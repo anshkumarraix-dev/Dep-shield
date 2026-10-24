@@ -16,9 +16,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
-  HelpCircle,
   Scale,
-  Sparkles,
 } from 'lucide-react';
 
 interface EvidenceDrawerProps {

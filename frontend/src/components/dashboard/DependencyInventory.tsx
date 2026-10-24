@@ -9,10 +9,6 @@ import {
   Sparkles,
   ArrowRight,
   ShieldAlert,
-  CheckCircle,
-  Database,
-  ExternalLink,
-  Info,
   SlidersHorizontal,
 } from 'lucide-react';
 

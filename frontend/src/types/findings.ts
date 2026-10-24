@@ -73,6 +73,7 @@ export interface SecurityFinding {
   
   // Threat & Evidence Metrics
   signalCategory: string; // e.g. "Malicious Dependency Injection", "Prototype Pollution", "Account Hijack"
+  quoteVerification?: QuoteVerificationStatus; // Quote verification state
   confidence: number; // 0.0 - 1.0 (uncalibrated heuristic rule score, e.g. 0.92)
   sourceCount: number; // Count of deduplicated independent original sources
   riskExplanation: string;

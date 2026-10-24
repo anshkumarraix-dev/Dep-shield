@@ -122,7 +122,7 @@ export function validateAndParsePackageLock(
     }
 
     const name = extractPackageName(pkgPath, meta);
-    const isDirect = directNames.has(name) || !pkgPath.includes('/node_modules/');
+    const isDirect = directNames.size > 0 ? directNames.has(name) : !pkgPath.includes('/node_modules/');
 
     // Build human-readable shortest dependency path
     const pathParts = pkgPath.split('node_modules/').filter(Boolean);
@@ -145,6 +145,7 @@ export function validateAndParsePackageLock(
       const depItem: ParsedDependency = {
         name,
         version,
+        type: isDirect ? 'direct' : 'transitive',
         direct: isDirect,
         depPath,
         analyzed: false,
@@ -192,6 +193,21 @@ export function validateAndParsePackageLock(
     valid: true,
     summary,
   };
+}
+
+/**
+ * Convenience helper to parse lockfile content and return the summary directly.
+ */
+export function parseLockfileContent(
+  content: string,
+  fileName = 'package-lock.json',
+  isSyntheticSample = false
+): LockfileParsedSummary {
+  const res = validateAndParsePackageLock(content, fileName, isSyntheticSample);
+  if (!res.valid || !res.summary) {
+    throw new Error(res.error || 'Failed to parse package-lock.json');
+  }
+  return res.summary;
 }
 
 /**

@@ -7,15 +7,19 @@ import { StatCards } from '@/components/dashboard/StatCards';
 import { FindingsTable } from '@/components/dashboard/FindingsTable';
 import { EvidenceDrawer } from '@/components/dashboard/EvidenceDrawer';
 import { ActivityFeedPreview } from '@/components/dashboard/ActivityFeedPreview';
+import { DependencyInventory } from '@/components/dashboard/DependencyInventory';
 import { UploadCard } from '@/components/upload/UploadCard';
 import { ScanProgressBar } from '@/components/scan/ScanProgressBar';
 import { scansService } from '@/services/scansService';
+import { parseLockfileContent, SAMPLE_DEMO_PACKAGE_LOCK } from '@/services/lockfileParser';
 import {
   ScanSummaryMetrics,
   SecurityFinding,
   ActivityEvent,
   LockfileParsedSummary,
   ScanProgressState,
+  ParsedDependency,
+  RiskLevel,
 } from '@/types';
 import { envConfig } from '@/config/env';
 import { Shield, Sparkles } from 'lucide-react';
@@ -24,6 +28,7 @@ export default function DepShieldDashboard() {
   const [metrics, setMetrics] = useState<ScanSummaryMetrics | null>(null);
   const [findings, setFindings] = useState<SecurityFinding[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [packages, setPackages] = useState<ParsedDependency[]>([]);
   const [selectedFinding, setSelectedFinding] = useState<SecurityFinding | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [progressState, setProgressState] = useState<ScanProgressState | null>(null);
@@ -31,9 +36,12 @@ export default function DepShieldDashboard() {
   const [lastScannedFile, setLastScannedFile] = useState<string>('sample-package-lock.json');
   const [lastSyncedTime, setLastSyncedTime] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [riskFilter, setRiskFilter] = useState<RiskLevel | 'ALL'>('ALL');
+  const [inventoryFilter, setInventoryFilter] = useState<'all' | 'direct' | 'transitive' | 'analyzed'>('all');
 
   const uploadSectionRef = useRef<HTMLDivElement>(null);
   const findingsSectionRef = useRef<HTMLDivElement>(null);
+  const dependenciesSectionRef = useRef<HTMLDivElement>(null);
   const activitySectionRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -45,11 +53,17 @@ export default function DepShieldDashboard() {
     };
   }, []);
 
-  // Initial load with baseline demo data
+  // Initial load with baseline demo data and parsed sample packages
   useEffect(() => {
     let ignore = false;
     async function init() {
       try {
+        // Parse baseline sample fixture packages locally
+        const parsedSample = parseLockfileContent(SAMPLE_DEMO_PACKAGE_LOCK, 'sample-package-lock.json');
+        if (!ignore && parsedSample.packages) {
+          setPackages(parsedSample.packages);
+        }
+
         const [metricsData, findingsData, activityData] = await Promise.all([
           scansService.getSummaryMetrics(),
           scansService.getFindings(),
@@ -73,12 +87,19 @@ export default function DepShieldDashboard() {
 
   // Handle Scan execution triggered from UploadCard
   const handleStartScan = async (lockfileSummary: LockfileParsedSummary) => {
+    if (isScanning) return;
+
     // Clear any previous transition timers
     timersRef.current.forEach((t) => clearTimeout(t));
     timersRef.current = [];
 
     setIsScanning(true);
     setLastScannedFile(lockfileSummary.fileName);
+
+    // Update parsed inventory packages if present
+    if (lockfileSummary.packages && lockfileSummary.packages.length > 0) {
+      setPackages(lockfileSummary.packages);
+    }
 
     try {
       const result = await scansService.simulateScan(lockfileSummary, (progress) => {
@@ -90,10 +111,10 @@ export default function DepShieldDashboard() {
       setActivity(result.activity);
       setLastSyncedTime(new Date().toLocaleTimeString());
 
-      // Auto scroll to findings table after scan
+      // Auto scroll to findings table after scan completes
       const scrollTimer = setTimeout(() => {
         findingsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 400);
+      }, 500);
       timersRef.current.push(scrollTimer);
     } catch (err) {
       console.error('Scan simulation error:', err);
@@ -106,21 +127,42 @@ export default function DepShieldDashboard() {
     }
   };
 
-  // Re-run scan with current state
+  // Re-run demo scan with current file
   const handleTriggerQuickScan = async () => {
+    if (isScanning) return;
+
     const dummySummary: LockfileParsedSummary = {
       fileName: lastScannedFile,
       fileSizeBytes: 24500,
       lockfileVersion: 3,
       projectName: 'depshield-demo-app',
       projectVersion: '2.1.0',
-      totalPackagesDetected: metrics?.totalDependenciesScanned || 384,
-      directDependenciesCount: metrics?.directCount || 22,
-      transitiveDependenciesCount: metrics?.transitiveCount || 362,
+      totalPackagesDetected: packages.length || 9,
+      directDependenciesCount: packages.filter((p) => p.type === 'direct').length || 5,
+      transitiveDependenciesCount: packages.filter((p) => p.type === 'transitive').length || 4,
+      packages: packages,
+      analyzedPackages: packages.slice(0, 4),
       parsedAt: new Date().toISOString(),
       isSyntheticSample: true,
     };
     await handleStartScan(dummySummary);
+  };
+
+  // Handle interactive filter clicks from StatCards
+  const handleStatCardFilterClick = (filterType: 'riskLevel' | 'dependencyType' | 'section', value: string) => {
+    if (filterType === 'riskLevel') {
+      setRiskFilter(value as RiskLevel);
+      findingsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else if (filterType === 'dependencyType') {
+      setInventoryFilter(value as 'all' | 'direct' | 'transitive');
+      dependenciesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else if (filterType === 'section') {
+      if (value === 'findings') {
+        findingsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      } else if (value === 'dependencies') {
+        dependenciesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
   };
 
   const handleNavigation = (sectionId: string) => {
@@ -129,6 +171,8 @@ export default function DepShieldDashboard() {
       uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
     } else if (sectionId === 'findings') {
       findingsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else if (sectionId === 'dependencies') {
+      dependenciesSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
     } else if (sectionId === 'activity') {
       activitySectionRef.current?.scrollIntoView({ behavior: 'smooth' });
     } else {
@@ -232,7 +276,7 @@ export default function DepShieldDashboard() {
             <UploadCard onStartScan={handleStartScan} isScanning={isScanning} />
           </div>
 
-          {/* Active Scan Progress State */}
+          {/* Active Dedicated Scan Progress View */}
           {progressState && (
             <div className="transition-all animate-in slide-in-from-top-4">
               <ScanProgressBar progressState={progressState} />
@@ -242,7 +286,7 @@ export default function DepShieldDashboard() {
           {/* Key Metrics Overview */}
           {metrics && (
             <section aria-label="Key Supply Chain Metrics" id="dashboard">
-              <StatCards metrics={metrics} />
+              <StatCards metrics={metrics} onFilterClick={handleStatCardFilterClick} />
             </section>
           )}
 
@@ -252,6 +296,17 @@ export default function DepShieldDashboard() {
               findings={findings}
               onSelectFinding={(f) => setSelectedFinding(f)}
               selectedFindingId={selectedFinding?.id}
+              initialRiskFilter={riskFilter}
+            />
+          </section>
+
+          {/* Dependency Inventory Section */}
+          <section ref={dependenciesSectionRef} id="dependencies" className="space-y-4">
+            <DependencyInventory
+              packages={packages}
+              findings={findings}
+              onSelectFinding={(f) => setSelectedFinding(f)}
+              selectedFilter={inventoryFilter}
             />
           </section>
 
@@ -282,3 +337,4 @@ export default function DepShieldDashboard() {
     </div>
   );
 }
+

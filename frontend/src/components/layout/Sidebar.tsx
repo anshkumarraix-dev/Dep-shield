@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Layers,
   History,
-  Settings,
   Radio,
   FileCode2,
   X,

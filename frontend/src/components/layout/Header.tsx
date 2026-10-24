@@ -58,16 +58,16 @@ export function Header({
           <span>{envConfig.apiUrl}</span>
         </div>
 
-        {/* Refresh / Scan Action */}
+        {/* Restart Demo Scan Action */}
         <button
           onClick={onRefresh}
           disabled={isScanning}
           className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 transition-all hover:bg-cyan-500/20 active:scale-95 disabled:opacity-50"
-          title="Run quick scan refresh"
-          aria-label="Trigger scan refresh"
+          title="Restart demo scan with current file"
+          aria-label="Restart demo scan"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-          <span className="hidden xs:inline">{isScanning ? 'Scanning...' : 'Trigger Scan'}</span>
+          <span className="hidden sm:inline">{isScanning ? 'Scanning...' : 'Restart Demo'}</span>
         </button>
 
         {/* Notification Bell */}

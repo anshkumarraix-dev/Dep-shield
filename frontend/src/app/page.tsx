@@ -22,7 +22,7 @@ import {
   RiskLevel,
 } from '@/types';
 import { envConfig } from '@/config/env';
-import { Shield, Sparkles } from 'lucide-react';
+import { Shield, Sparkles, CheckCircle2, ArrowDown, RotateCw } from 'lucide-react';
 
 export default function DepShieldDashboard() {
   const [metrics, setMetrics] = useState<ScanSummaryMetrics | null>(null);
@@ -38,6 +38,13 @@ export default function DepShieldDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [riskFilter, setRiskFilter] = useState<RiskLevel | 'ALL'>('ALL');
   const [inventoryFilter, setInventoryFilter] = useState<'all' | 'direct' | 'transitive' | 'analyzed'>('all');
+  const [lastCompletedScan, setLastCompletedScan] = useState<{
+    completedAt: string;
+    durationMs: number;
+    packagesCount: number;
+    findingsCount: number;
+    fileName: string;
+  } | null>(null);
 
   const uploadSectionRef = useRef<HTMLDivElement>(null);
   const findingsSectionRef = useRef<HTMLDivElement>(null);
@@ -93,6 +100,7 @@ export default function DepShieldDashboard() {
     timersRef.current.forEach((t) => clearTimeout(t));
     timersRef.current = [];
 
+    const startTime = performance.now();
     setIsScanning(true);
     setLastScannedFile(lockfileSummary.fileName);
 
@@ -106,10 +114,18 @@ export default function DepShieldDashboard() {
         setProgressState(progress);
       });
 
+      const elapsed = Math.round(performance.now() - startTime);
       setMetrics(result.summary);
       setFindings(result.findings);
       setActivity(result.activity);
       setLastSyncedTime(new Date().toLocaleTimeString());
+      setLastCompletedScan({
+        completedAt: new Date().toLocaleTimeString(),
+        durationMs: elapsed,
+        packagesCount: result.summary.totalPackagesScanned,
+        findingsCount: result.findings.length,
+        fileName: lockfileSummary.fileName,
+      });
 
       // Auto scroll to findings table after scan completes
       const scrollTimer = setTimeout(() => {
@@ -280,6 +296,49 @@ export default function DepShieldDashboard() {
           {progressState && (
             <div className="transition-all animate-in slide-in-from-top-4">
               <ScanProgressBar progressState={progressState} />
+            </div>
+          )}
+
+          {/* Scan Completion Alert & Telemetry Card */}
+          {lastCompletedScan && !isScanning && !progressState && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-200 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex-shrink-0">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white">
+                      Security Analysis Complete
+                    </span>
+                    <span className="rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-mono text-emerald-300 border border-emerald-800/60">
+                      {(lastCompletedScan.durationMs / 1000).toFixed(1)}s elapsed
+                    </span>
+                    <span className="rounded bg-slate-900 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-slate-800">
+                      $0.00 billable API cost
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-300/80 mt-0.5">
+                    Evaluated <strong className="text-white">{lastCompletedScan.packagesCount} packages</strong> from <code className="text-cyan-300">{lastCompletedScan.fileName}</code> &bull; Verified against OSV vulnerability graph &bull; Ranked <strong className="text-white">{lastCompletedScan.findingsCount} security findings</strong>.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <button
+                  onClick={() => findingsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-900/60 hover:bg-emerald-800/80 text-emerald-200 border border-emerald-700/60 px-3 py-1.5 text-xs font-medium transition-all shadow-sm active:scale-95 cursor-pointer"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                  <span>Inspect Findings</span>
+                </button>
+                <button
+                  onClick={handleTriggerQuickScan}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 text-xs font-medium transition-all active:scale-95 cursor-pointer"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  <span>Re-Scan</span>
+                </button>
+              </div>
             </div>
           )}
 

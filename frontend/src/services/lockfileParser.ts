@@ -305,3 +305,46 @@ export const SAMPLE_DEMO_PACKAGE_LOCK = JSON.stringify(
   2
 );
 
+/**
+ * Built-in synthetic sample package-lock.json (npm v2) for legacy node microservice.
+ */
+export const SAMPLE_LEGACY_PACKAGE_LOCK = JSON.stringify(
+  {
+    name: "legacy-auth-service",
+    version: "1.4.2",
+    lockfileVersion: 2,
+    requires: true,
+    packages: {
+      "": {
+        name: "legacy-auth-service",
+        version: "1.4.2",
+        dependencies: {
+          "jsonwebtoken": "8.5.1",
+          "lodash": "4.17.19",
+          "minimist": "1.2.5",
+          "ws": "7.4.5"
+        }
+      },
+      "node_modules/jsonwebtoken": {
+        "version": "8.5.1",
+        "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-8.5.1.tgz"
+      },
+      "node_modules/lodash": {
+        "version": "4.17.19",
+        "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.19.tgz"
+      },
+      "node_modules/minimist": {
+        "version": "1.2.5",
+        "resolved": "https://registry.npmjs.org/minimist/-/minimist-1.2.5.tgz"
+      },
+      "node_modules/ws": {
+        "version": "7.4.5",
+        "resolved": "https://registry.npmjs.org/ws/-/ws-7.4.5.tgz"
+      }
+    }
+  },
+  null,
+  2
+);
+
+

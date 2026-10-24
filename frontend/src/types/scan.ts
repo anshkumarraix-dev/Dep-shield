@@ -69,5 +69,8 @@ export interface ScanProgressState {
   elapsedMs: number;
   stageIndex?: number;
   totalStages?: number;
+  logs?: string[];
+  activePackage?: string;
+  analyzedPackages?: string[];
 }
 

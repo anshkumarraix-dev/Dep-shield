@@ -14,6 +14,7 @@ import {
 import {
   validateAndParsePackageLock,
   SAMPLE_DEMO_PACKAGE_LOCK,
+  SAMPLE_LEGACY_PACKAGE_LOCK,
 } from '@/services/lockfileParser';
 import { LockfileParsedSummary } from '@/types';
 
@@ -76,7 +77,6 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
@@ -101,6 +101,10 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
     processFileContent(SAMPLE_DEMO_PACKAGE_LOCK, 'sample-package-lock.json', true);
   };
 
+  const handleLoadLegacySample = () => {
+    processFileContent(SAMPLE_LEGACY_PACKAGE_LOCK, 'legacy-auth-package-lock.json', true);
+  };
+
   const handleClear = () => {
     setSelectedSummary(null);
     setErrorMessage(null);
@@ -115,7 +119,7 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
       <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-800">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-white flex items-center gap-2">
@@ -131,16 +135,27 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
           </p>
         </div>
 
-        {/* Sample Lockfile Button */}
-        <button
-          onClick={handleLoadSample}
-          disabled={isScanning}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-slate-700 hover:text-white active:scale-95 disabled:opacity-50"
-          title="Load preconfigured synthetic demo lockfile with simulated signals"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-          <span>Use Sample Lockfile</span>
-        </button>
+        {/* Demo Preset Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleLoadSample}
+            disabled={isScanning}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-700/60 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-300 transition-all hover:bg-cyan-900/60 hover:text-white active:scale-95 disabled:opacity-50"
+            title="Load Express + Lodash demo lockfile (v3)"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Preset: Node 18 (v3)</span>
+          </button>
+          <button
+            onClick={handleLoadLegacySample}
+            disabled={isScanning}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-slate-700 hover:text-white active:scale-95 disabled:opacity-50"
+            title="Load Legacy Auth demo lockfile (v2)"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <span>Preset: Legacy Auth (v2)</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Upload / Drag-and-Drop Area */}

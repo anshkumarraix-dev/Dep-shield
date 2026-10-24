@@ -243,23 +243,55 @@ export const scansService = {
     const startTime = Date.now();
     const analyzedScope = lockfileSummary.analyzedPackages || [];
     const analyzedNames = analyzedScope.map((p) => p.name).join(', ') || 'direct dependencies';
+    const totalDeps = lockfileSummary.totalPackagesDetected;
+    const directDeps = lockfileSummary.directDependenciesCount;
+    const transitiveDeps = lockfileSummary.transitiveDependenciesCount;
+
+    const logs: string[] = [];
+    const getTimestamp = () => {
+      const diff = Date.now() - startTime;
+      const secs = Math.floor(diff / 1000).toString().padStart(2, '0');
+      const ms = Math.floor(diff % 1000).toString().padStart(3, '0');
+      return `00:${secs}.${ms}`;
+    };
+
+    const packageNames = analyzedScope.map((p) => p.name);
 
     for (let i = 0; i < MOCK_SCAN_STAGES.length; i++) {
       const stage = MOCK_SCAN_STAGES[i];
       let contextualMessage = stage.description;
+      let activePkg: string | undefined = undefined;
 
       if (stage.stage === 'parsing') {
-        contextualMessage = `Parsed ${lockfileSummary.totalPackagesDetected} total dependencies (${lockfileSummary.directDependenciesCount} direct, ${lockfileSummary.transitiveDependenciesCount} transitive).`;
+        contextualMessage = `Parsed ${totalDeps} total dependencies (${directDeps} direct, ${transitiveDeps} transitive).`;
+        logs.push(`[${getTimestamp()}] [PARSER] Reading lockfile: ${lockfileSummary.fileName} (format: v${lockfileSummary.lockfileVersion})`);
+        logs.push(`[${getTimestamp()}] [PARSER] Ingested ${totalDeps} package coordinates (${directDeps} direct, ${transitiveDeps} transitive)`);
+        logs.push(`[${getTimestamp()}] [PARSER] Prioritized ${analyzedScope.length || 4} packages for deep investigation: ${analyzedNames}`);
       } else if (stage.stage === 'baseline') {
-        contextualMessage = `Correlating ${lockfileSummary.totalPackagesDetected} package coordinates against OSV & npm vulnerability baseline...`;
+        activePkg = packageNames[0] || 'lodash';
+        contextualMessage = `Correlating ${totalDeps} package coordinates against OSV & npm vulnerability baseline...`;
+        logs.push(`[${getTimestamp()}] [BASELINE] Querying OSV vulnerability database for ${packageNames.slice(0, 3).join(', ')}...`);
+        logs.push(`[${getTimestamp()}] [BASELINE] OSV match confirmed for lodash@4.17.20 (GHSA-p6mc-m468-83gw / CVE-2020-8203)`);
       } else if (stage.stage === 'signals') {
+        activePkg = packageNames[1] || 'tar';
         contextualMessage = `Simulating targeted Search for top ${analyzedScope.length || 4} prioritized packages (${analyzedNames})...`;
+        logs.push(`[${getTimestamp()}] [SIGNALS] Querying maintainer commit logs and public issue discussions...`);
+        logs.push(`[${getTimestamp()}] [SIGNALS] Protestware/arbitrary file overwrite signal detected on tar@6.1.13`);
+        logs.push(`[${getTimestamp()}] [SIGNALS] Follow-redirects SSRF advisory correlated with axios@1.6.8`);
       } else if (stage.stage === 'evidence') {
+        activePkg = packageNames[2] || 'axios';
         contextualMessage = `Validating verbatim quote substrings, dates, and deduplicating registrable domains...`;
+        logs.push(`[${getTimestamp()}] [EVIDENCE] Fetching page content and validating verbatim quote substrings`);
+        logs.push(`[${getTimestamp()}] [EVIDENCE] Deduplicating subdomains under root registrable domains (github.com, osv.dev)`);
       } else if (stage.stage === 'scoring') {
+        activePkg = packageNames[3] || 'express';
         contextualMessage = `Applying deterministic scoring rules (WATCH, HIGH, CRITICAL) without LLM drift...`;
+        logs.push(`[${getTimestamp()}] [SCORING] Applying deterministic multi-source corroboration rules`);
+        logs.push(`[${getTimestamp()}] [SCORING] Single uncorroborated sources capped at WATCH; multi-source -> HIGH/CRITICAL`);
       } else if (stage.stage === 'findings') {
         contextualMessage = `Cataloging 6 demonstration findings with actionable developer next steps...`;
+        logs.push(`[${getTimestamp()}] [FINDINGS] Cataloging 6 findings (1 Critical, 2 High, 2 Watch, 1 Info)`);
+        logs.push(`[${getTimestamp()}] [FINDINGS] Compiling remediation guidance & dependency ancestor paths`);
       }
 
       onProgress?.({
@@ -270,16 +302,14 @@ export const scansService = {
         elapsedMs: Date.now() - startTime,
         stageIndex: i + 1,
         totalStages: MOCK_SCAN_STAGES.length,
+        logs: [...logs],
+        activePackage: activePkg,
+        analyzedPackages: packageNames,
       });
 
-      // Realistic predictable demo interval (320ms per stage)
-      await new Promise((resolve) => setTimeout(resolve, 320));
+      // Realistic predictable demo interval (380ms per stage)
+      await new Promise((resolve) => setTimeout(resolve, 380));
     }
-
-    const elapsedTotal = Date.now() - startTime;
-    const totalDeps = lockfileSummary.totalPackagesDetected;
-    const directDeps = lockfileSummary.directDependenciesCount;
-    const transitiveDeps = lockfileSummary.transitiveDependenciesCount;
 
     const dynamicSummary: ScanSummaryMetrics = {
       totalDependenciesScanned: totalDeps,
@@ -363,6 +393,9 @@ export const scansService = {
       },
     ];
 
+    const elapsedTotal = Date.now() - startTime;
+    logs.push(`[${getTimestamp()}] [COMPLETE] Scan finalized: 6 findings compiled in ${(elapsedTotal / 1000).toFixed(2)}s. Zero network drift.`);
+
     onProgress?.({
       stage: 'completed',
       stageLabel: 'Scan Completed',
@@ -371,6 +404,8 @@ export const scansService = {
       elapsedMs: elapsedTotal,
       stageIndex: 6,
       totalStages: 6,
+      logs: [...logs],
+      analyzedPackages: packageNames,
     });
 
     return {

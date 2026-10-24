@@ -21,6 +21,9 @@ import {
   AlertCircle,
   Info,
   ArrowUpDown,
+  Download,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface FindingsTableProps {
@@ -146,8 +149,66 @@ export function FindingsTable({
   const [selectedDepType, setSelectedDepType] = useState<DependencyType | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'severity' | 'package'>('severity');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
 
   const riskFilters: (RiskLevel | 'ALL')[] = ['ALL', 'CRITICAL', 'HIGH', 'WATCH', 'INFO'];
+
+  const handleCopyFix = (finding: SecurityFinding, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cmd = finding.fixedVersion
+      ? `npm install ${finding.packageName}@${finding.fixedVersion}`
+      : `npm audit fix`;
+    navigator.clipboard.writeText(cmd);
+    setCopiedId(finding.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleToggleStatus = (findingId: string, currentStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cycle: Record<string, string> = {
+      OPEN: 'INVESTIGATING',
+      INVESTIGATING: 'MITIGATED',
+      MITIGATED: 'OPEN',
+    };
+    const nextStatus = cycle[statusOverrides[findingId] || currentStatus] || 'OPEN';
+    setStatusOverrides((prev) => ({ ...prev, [findingId]: nextStatus }));
+  };
+
+  const handleExportReport = () => {
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      reportVersion: '1.0.0',
+      provenance: 'DepShield Supply Chain Threat Intelligence Console (Demo Mode)',
+      findingsCount: filteredFindings.length,
+      findings: filteredFindings.map((f) => ({
+        id: f.id,
+        title: f.title,
+        packageName: f.packageName,
+        installedVersion: f.installedVersion,
+        fixedVersion: f.fixedVersion,
+        riskLevel: f.riskLevel,
+        status: statusOverrides[f.id] || f.status,
+        signalCategory: f.signalCategory,
+        deterministicRule: f.deterministicRuleApplied,
+        confidence: f.confidence,
+        osvMatch: f.in_osv,
+        remediationAction: f.recommendedAction || f.remediationGuidance,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `depshield-threat-report-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const filteredFindings = useMemo(() => {
     const list = findings.filter((f) => {
@@ -190,7 +251,6 @@ export function FindingsTable({
     });
   }, [findings, selectedRisk, selectedDepType, searchQuery, sortBy]);
 
-
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/85 p-5 shadow-xl">
       {/* Title & Stats */}
@@ -204,12 +264,22 @@ export function FindingsTable({
             Correlated vulnerability telemetry across direct and transitive dependencies
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-slate-400">Showing</span>
-          <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-cyan-300 font-bold border border-cyan-500/20">
-            {filteredFindings.length} of {findings.length}
-          </span>
-          <span className="text-slate-400">findings</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportReport}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs font-mono text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors"
+            title="Download JSON threat intelligence report"
+          >
+            <Download className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Export Report</span>
+          </button>
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400">Showing</span>
+            <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-cyan-300 font-bold border border-cyan-500/20">
+              {filteredFindings.length} of {findings.length}
+            </span>
+            <span className="text-slate-400">findings</span>
+          </div>
         </div>
       </div>
 
@@ -450,18 +520,55 @@ export function FindingsTable({
                       <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
                     </td>
 
-                    {/* Details Action */}
+                    {/* Details & Actions */}
                     <td className="py-3 pr-3 whitespace-nowrap text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectFinding(finding);
-                        }}
-                        className="inline-flex items-center gap-1 text-xs text-slate-400 group-hover:text-cyan-400 transition-colors"
-                      >
-                        <span>Evidence</span>
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Status Toggle */}
+                        <button
+                          onClick={(e) => handleToggleStatus(finding.id, finding.status, e)}
+                          className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase border transition-all ${
+                            (statusOverrides[finding.id] || finding.status) === 'MITIGATED'
+                              ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50 font-bold'
+                              : (statusOverrides[finding.id] || finding.status) === 'INVESTIGATING'
+                              ? 'bg-amber-950/50 text-amber-300 border-amber-800/50'
+                              : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                          }`}
+                          title="Click to toggle status (OPEN -> INVESTIGATING -> MITIGATED)"
+                        >
+                          {statusOverrides[finding.id] || finding.status}
+                        </button>
+
+                        {/* Quick Copy Fix */}
+                        <button
+                          onClick={(e) => handleCopyFix(finding, e)}
+                          className="inline-flex items-center gap-1 rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono text-cyan-300 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-800 transition-colors"
+                          title={finding.fixedVersion ? `Copy: npm install ${finding.packageName}@${finding.fixedVersion}` : 'Copy: npm audit fix'}
+                        >
+                          {copiedId === finding.id ? (
+                            <>
+                              <Check className="h-2.5 w-2.5 text-emerald-400" />
+                              <span className="text-emerald-400 font-semibold">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-2.5 w-2.5 text-slate-400" />
+                              <span>Fix</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Open Evidence Drawer */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectFinding(finding);
+                          }}
+                          className="inline-flex items-center gap-1 text-xs text-slate-400 group-hover:text-cyan-400 transition-colors pl-1"
+                        >
+                          <span>Evidence</span>
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

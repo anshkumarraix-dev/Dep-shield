@@ -1,0 +1,28 @@
+{
+  "_comment": "SYNTHETIC TEST FIXTURE - For offline testing only. Uses example.test domain. No allegations about real packages.",
+  "package": "example-benign-util",
+  "version": "1.0.0",
+  "ecosystem": "npm",
+  "pages": [
+    {
+      "url": "https://docs.example.test/packages/example-benign-util",
+      "text": "Documentation for example-benign-util version 1.0.0. A synthetic text formatting utility for offline testing.",
+      "fetched_at": "2026-10-24T12:00:00Z"
+    }
+  ],
+  "canned_output": {
+    "signals": [
+      {
+        "url": "https://docs.example.test/packages/example-benign-util",
+        "security_relevant": false,
+        "claim": "Benign documentation page for test utility",
+        "affects_versions": "",
+        "version_match": "not_affected",
+        "severity": "none",
+        "credibility": 0.5,
+        "is_original_report": true,
+        "evidence_quote": "A synthetic text formatting utility for offline testing."
+      }
+    ]
+  }
+}

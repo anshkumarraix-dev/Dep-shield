@@ -204,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
     if likely_fakes:
         print("\n[INFO] Found values marked as test/fake (allowed):")
         for f in likely_fakes:
-            print(f"  File: {f['source']}:{f['line']} | {f['pattern']} | {f['preview']}")
+             print(f"  File: {f['source']}:{f['line']} | {f['pattern']}")
 
     print("\nNo exposed secrets found. Check passed.")
     return 0

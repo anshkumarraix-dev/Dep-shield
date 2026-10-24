@@ -116,3 +116,92 @@ def test_nested_node_modules_and_deduplication():
     assert len(shared_deps) == 1
     assert shared_deps[0].version == "2.0.0"
     assert shared_deps[0].direct is False
+
+
+def test_empty_and_non_dict_inputs():
+    with pytest.raises(ValueError, match="empty"):
+        parse_lockfile("   \n\t  ")
+
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        parse_lockfile("[\"not\", \"an\", \"object\"]")
+
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        parse_lockfile("12345")
+
+
+def test_corrupt_packages_type():
+    with pytest.raises(ValueError, match="missing 'packages' map"):
+        parse_lockfile(json.dumps({"name": "app", "lockfileVersion": 3, "packages": "not-a-dict"}))
+
+
+def test_empty_packages_lockfile():
+    content = json.dumps({"name": "empty-app", "lockfileVersion": 3, "packages": {}})
+    deps = parse_lockfile(content)
+    assert deps == []
+
+
+def test_package_without_version_skipped():
+    lockfile_data = {
+        "name": "app",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {"name": "app", "dependencies": {"valid-pkg": "1.0.0"}},
+            "node_modules/valid-pkg": {"version": "1.0.0"},
+            "node_modules/no-version-pkg": {"description": "no version property"},
+        },
+    }
+    deps = parse_lockfile(json.dumps(lockfile_data))
+    assert len(deps) == 1
+    assert deps[0].name == "valid-pkg"
+    assert deps[0].version == "1.0.0"
+
+
+def test_scoped_packages_and_deep_transitive_hierarchy():
+    lockfile_data = {
+        "name": "scoped-app",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "scoped-app",
+                "dependencies": {
+                    "@scope/parent": "1.0.0",
+                },
+            },
+            "node_modules/@scope/parent": {
+                "name": "@scope/parent",
+                "version": "1.0.0",
+                "dependencies": {
+                    "middle-pkg": "2.0.0",
+                },
+            },
+            "node_modules/middle-pkg": {
+                "name": "middle-pkg",
+                "version": "2.0.0",
+                "dependencies": {
+                    "@deep/leaf": "3.0.0",
+                },
+            },
+            "node_modules/@deep/leaf": {
+                "name": "@deep/leaf",
+                "version": "3.0.0",
+            },
+        },
+    }
+    deps = parse_lockfile(json.dumps(lockfile_data))
+    assert len(deps) == 3
+
+    dep_map = {d.name: d for d in deps}
+    assert dep_map["@scope/parent"].direct is True
+    assert dep_map["@scope/parent"].dep_path == ["scoped-app", "@scope/parent@1.0.0"]
+
+    assert dep_map["middle-pkg"].direct is False
+    assert dep_map["middle-pkg"].dep_path == ["scoped-app", "@scope/parent@1.0.0", "middle-pkg@2.0.0"]
+
+    assert dep_map["@deep/leaf"].direct is False
+    assert dep_map["@deep/leaf"].dep_path == [
+        "scoped-app",
+        "@scope/parent@1.0.0",
+        "middle-pkg@2.0.0",
+        "@deep/leaf@3.0.0",
+    ]
+

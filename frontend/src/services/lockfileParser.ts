@@ -1,4 +1,4 @@
-import { LockfileParsedSummary } from '@/types';
+import { LockfileParsedSummary, ParsedDependency } from '@/types';
 
 export interface LockfileValidationResult {
   valid: boolean;
@@ -6,8 +6,17 @@ export interface LockfileValidationResult {
   summary?: LockfileParsedSummary;
 }
 
+function extractPackageName(pkgPath: string, meta: Record<string, unknown>): string {
+  if (typeof meta.name === 'string' && meta.name.trim()) {
+    return meta.name.trim();
+  }
+  const parts = pkgPath.split('node_modules/');
+  return parts[parts.length - 1] || pkgPath;
+}
+
 /**
- * Validates and extracts basic structure from npm package-lock.json (v2 or v3).
+ * Validates and extracts full dependency inventory from npm package-lock.json (v2 or v3).
+ * Performs local client-side parsing without external network transmission.
  */
 export function validateAndParsePackageLock(
   content: string,
@@ -17,7 +26,7 @@ export function validateAndParsePackageLock(
   if (!content || !content.trim()) {
     return {
       valid: false,
-      error: 'The uploaded file is empty. Please provide a valid package-lock.json file.',
+      error: 'The uploaded file is empty. Please select a valid package-lock.json file.',
     };
   }
 
@@ -28,73 +37,155 @@ export function validateAndParsePackageLock(
     const message = err instanceof Error ? err.message : 'Syntax error';
     return {
       valid: false,
-      error: `Invalid JSON format: ${message}. Make sure the file is a well-formed package-lock.json.`,
+      error: `Invalid JSON syntax: ${message}. Make sure the file is an untruncated package-lock.json.`,
     };
   }
 
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     return {
       valid: false,
-      error: 'Invalid file structure: Expected a root JSON object in package-lock.json.',
+      error: 'Invalid file format: Expected a root JSON object in package-lock.json.',
     };
   }
 
-  // Validate lockfileVersion
-  const lockfileVersion = data.lockfileVersion;
-  if (lockfileVersion === undefined || lockfileVersion === null) {
+  // Validate lockfileVersion (number or string representation of 2 or 3)
+  const rawVersion = data.lockfileVersion;
+  if (rawVersion === undefined || rawVersion === null) {
     return {
       valid: false,
-      error: 'Missing "lockfileVersion" attribute. This does not appear to be an npm package-lock.json.',
+      error: 'Missing "lockfileVersion" attribute. This file does not appear to be an npm package-lock.',
     };
   }
 
-  if (lockfileVersion === 1) {
+  const numericVersion = Number(rawVersion);
+  if (numericVersion === 1) {
     return {
       valid: false,
-      error: 'Detected npm package-lock v1 (legacy). DepShield requires package-lock format v2 or v3 (npm 7+). Run `npm install --package-lock-only` to upgrade.',
+      error: 'Detected npm package-lock v1 (legacy format). DepShield requires package-lock format v2 or v3 (npm 7+). Run `npm install --package-lock-only` in your project to upgrade.',
     };
   }
 
-  if (lockfileVersion !== 2 && lockfileVersion !== 3) {
+  if (numericVersion !== 2 && numericVersion !== 3) {
     return {
       valid: false,
-      error: `Unsupported lockfileVersion (${String(lockfileVersion)}). DepShield supports package-lock v2 and v3.`,
+      error: `Unsupported lockfileVersion: "${String(rawVersion)}". DepShield supports lockfileVersion 2 and 3.`,
     };
   }
 
   // Validate packages object
   const packages = data.packages as Record<string, Record<string, unknown>> | undefined;
-  if (!packages || typeof packages !== 'object') {
+  if (!packages || typeof packages !== 'object' || Array.isArray(packages)) {
     return {
       valid: false,
-      error: 'Missing or malformed "packages" map. In npm v2/v3, packages must contain dependency tree descriptors.',
+      error: 'Missing or corrupt "packages" map in package-lock.json.',
     };
   }
 
-  // Calculate dependency counts
-  const rootPackage = packages[''] || {};
-  const rootDependencies = (rootPackage.dependencies as Record<string, string>) || (data.dependencies as Record<string, string>) || {};
-  const rootDevDependencies = (rootPackage.devDependencies as Record<string, string>) || (data.devDependencies as Record<string, string>) || {};
-  
-  const directDepsCount = Object.keys(rootDependencies).length + Object.keys(rootDevDependencies).length;
-  const allPackageKeys = Object.keys(packages).filter((k) => k !== '');
-  const totalPackages = allPackageKeys.length > 0 ? allPackageKeys.length : Object.keys(rootDependencies).length;
-  const transitiveDepsCount = Math.max(0, totalPackages - directDepsCount);
+  const rootMeta = packages[''] || {};
+  const projectName =
+    (typeof rootMeta.name === 'string' && rootMeta.name) ||
+    (typeof data.name === 'string' && data.name) ||
+    'unnamed-project';
+  const projectVersion =
+    (typeof rootMeta.version === 'string' && rootMeta.version) ||
+    (typeof data.version === 'string' && data.version) ||
+    '1.0.0';
 
-  const projectName = (rootPackage.name as string) || (data.name as string) || 'unnamed-project';
-  const projectVersion = (rootPackage.version as string) || (data.version as string) || '1.0.0';
+  // Identify direct dependency names declared in the root package
+  const directNames = new Set<string>();
+  const directDepSections = ['dependencies', 'devDependencies', 'optionalDependencies'] as const;
+  for (const section of directDepSections) {
+    const depsObj = (rootMeta[section] || data[section]) as Record<string, unknown> | undefined;
+    if (depsObj && typeof depsObj === 'object') {
+      Object.keys(depsObj).forEach((name) => directNames.add(name));
+    }
+  }
+
+  let warningMessage: string | undefined;
+  if (directNames.size === 0 && Object.keys(packages).length > 1) {
+    warningMessage =
+      'Root dependency manifests were not explicitly declared; top-level node_modules entries are treated as direct dependencies.';
+  }
+
+  // Extract all package entries deduplicating by package identity (name@version)
+  const dedupeMap = new Map<string, ParsedDependency>();
+  const allParsed: ParsedDependency[] = [];
+
+  for (const [pkgPath, meta] of Object.entries(packages)) {
+    if (!pkgPath || typeof meta !== 'object' || meta === null) {
+      continue; // Skip root project entry
+    }
+
+    const version = typeof meta.version === 'string' ? meta.version : '';
+    if (!version) {
+      continue; // Incomplete package record
+    }
+
+    const name = extractPackageName(pkgPath, meta);
+    const isDirect = directNames.has(name) || !pkgPath.includes('/node_modules/');
+
+    // Build human-readable shortest dependency path
+    const pathParts = pkgPath.split('node_modules/').filter(Boolean);
+    const depPath: string[] = [projectName];
+    if (pathParts.length > 0) {
+      pathParts.forEach((part, idx) => {
+        const cleanPart = part.replace(/\/$/, '');
+        if (idx === pathParts.length - 1) {
+          depPath.push(`${cleanPart}@${version}`);
+        } else {
+          depPath.push(cleanPart);
+        }
+      });
+    } else {
+      depPath.push(`${name}@${version}`);
+    }
+
+    const pkgKey = `${name}@${version}`;
+    if (!dedupeMap.has(pkgKey)) {
+      const depItem: ParsedDependency = {
+        name,
+        version,
+        direct: isDirect,
+        depPath,
+        analyzed: false,
+      };
+      dedupeMap.set(pkgKey, depItem);
+      allParsed.push(depItem);
+    }
+  }
+
+  // Sort: direct dependencies first, then alphabetical by name
+  allParsed.sort((a, b) => {
+    if (a.direct && !b.direct) return -1;
+    if (!a.direct && b.direct) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Accurate direct and transitive counts without double-counting identities
+  const directCount = allParsed.filter((p) => p.direct).length;
+  const transitiveCount = allParsed.length - directCount;
+
+  // Prioritize top <= 4 packages for deep analysis (exact parity with backend MAX_PACKAGES_ANALYZED_PER_SCAN)
+  const maxAnalyzedScope = 4;
+  const analyzedPackages = allParsed.slice(0, maxAnalyzedScope).map((p) => {
+    p.analyzed = true;
+    return p;
+  });
 
   const summary: LockfileParsedSummary = {
     fileName,
     fileSizeBytes: new Blob([content]).size,
-    lockfileVersion: Number(lockfileVersion),
+    lockfileVersion: numericVersion,
     projectName,
     projectVersion,
-    totalPackagesDetected: totalPackages,
-    directDependenciesCount: directDepsCount,
-    transitiveDependenciesCount: transitiveDepsCount,
+    totalPackagesDetected: allParsed.length,
+    directDependenciesCount: directCount,
+    transitiveDependenciesCount: transitiveCount,
     parsedAt: new Date().toISOString(),
     isSyntheticSample,
+    packages: allParsed,
+    analyzedPackages,
+    warningMessage,
   };
 
   return {
@@ -104,7 +195,8 @@ export function validateAndParsePackageLock(
 }
 
 /**
- * Built-in synthetic sample package-lock.json for instant demo/replay.
+ * Built-in synthetic sample package-lock.json (npm v3) for instant demo/replay.
+ * Accurately represents a modern Node.js service with direct & transitive dependencies.
  */
 export const SAMPLE_DEMO_PACKAGE_LOCK = JSON.stringify(
   {
@@ -118,49 +210,82 @@ export const SAMPLE_DEMO_PACKAGE_LOCK = JSON.stringify(
         version: "2.1.0",
         dependencies: {
           "express": "^4.19.2",
-          "axios": "^1.6.8",
           "lodash": "^4.17.20",
-          "jsonwebtoken": "^9.0.0",
-          "tar": "^6.1.13"
+          "tar": "^6.1.13",
+          "axios": "^1.6.8",
+          "jsonwebtoken": "^9.0.0"
         },
         devDependencies: {
           "typescript": "^5.4.5",
-          "eslint": "^8.57.0",
-          "jest": "^29.7.0"
+          "eslint": "^8.57.0"
         }
       },
       "node_modules/lodash": {
         "version": "4.17.20",
         "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.20.tgz",
-        "integrity": "sha512-synth-integrity-lodash-demo-hash-only=="
+        "integrity": "sha512-synth-integrity-lodash-demo-hash=="
       },
       "node_modules/tar": {
         "version": "6.1.13",
         "resolved": "https://registry.npmjs.org/tar/-/tar-6.1.13.tgz",
-        "integrity": "sha512-synth-integrity-tar-demo-hash-only=="
-      },
-      "node_modules/axios": {
-        "version": "1.6.8",
-        "resolved": "https://registry.npmjs.org/axios/-/axios-1.6.8.tgz",
-        "integrity": "sha512-synth-integrity-axios-demo-hash-only=="
+        "integrity": "sha512-synth-integrity-tar-demo-hash=="
       },
       "node_modules/express": {
         "version": "4.19.2",
         "resolved": "https://registry.npmjs.org/express/-/express-4.19.2.tgz",
-        "integrity": "sha512-synth-integrity-express-demo-hash-only=="
+        "integrity": "sha512-synth-integrity-express-demo-hash==",
+        "dependencies": {
+          "accepts": "~1.3.8",
+          "cookie": "0.6.0",
+          "qs": "6.11.0"
+        }
       },
-      "node_modules/demo-lifecycle-plugin": {
-        "version": "1.0.4",
-        "resolved": "https://registry.npmjs.org/demo-lifecycle-plugin/-/demo-lifecycle-plugin-1.0.4.tgz",
-        "integrity": "sha512-synth-integrity-demo-lifecycle-plugin-hash=="
+      "node_modules/axios": {
+        "version": "1.6.8",
+        "resolved": "https://registry.npmjs.org/axios/-/axios-1.6.8.tgz",
+        "integrity": "sha512-synth-integrity-axios-demo-hash==",
+        "dependencies": {
+          "follow-redirects": "^1.15.4"
+        }
+      },
+      "node_modules/jsonwebtoken": {
+        "version": "9.0.0",
+        "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-9.0.0.tgz",
+        "integrity": "sha512-synth-integrity-jwt-demo-hash=="
+      },
+      "node_modules/accepts": {
+        "version": "1.3.8",
+        "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
+        "integrity": "sha512-synth-integrity-accepts-hash=="
+      },
+      "node_modules/cookie": {
+        "version": "0.6.0",
+        "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.6.0.tgz",
+        "integrity": "sha512-synth-integrity-cookie-hash=="
+      },
+      "node_modules/qs": {
+        "version": "6.11.0",
+        "resolved": "https://registry.npmjs.org/qs/-/qs-6.11.0.tgz",
+        "integrity": "sha512-synth-integrity-qs-hash=="
       },
       "node_modules/follow-redirects": {
         "version": "1.15.4",
         "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.4.tgz",
         "integrity": "sha512-synth-integrity-follow-redirects-hash=="
+      },
+      "node_modules/typescript": {
+        "version": "5.4.5",
+        "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.4.5.tgz",
+        "integrity": "sha512-synth-integrity-typescript-hash=="
+      },
+      "node_modules/eslint": {
+        "version": "8.57.0",
+        "resolved": "https://registry.npmjs.org/eslint/-/eslint-8.57.0.tgz",
+        "integrity": "sha512-synth-integrity-eslint-hash=="
       }
     }
   },
   null,
   2
 );
+

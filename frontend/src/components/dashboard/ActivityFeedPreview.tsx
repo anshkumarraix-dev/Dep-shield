@@ -47,7 +47,19 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
         return {
           icon: ShieldAlert,
           color: 'text-purple-400 bg-purple-950/50 border-purple-800/60',
-          label: 'ANALYSIS',
+          label: 'EVIDENCE',
+        };
+      case 'scoring':
+        return {
+          icon: ShieldAlert,
+          color: 'text-amber-400 bg-amber-950/50 border-amber-800/60',
+          label: 'SCORING',
+        };
+      case 'findings':
+        return {
+          icon: ShieldAlert,
+          color: 'text-emerald-400 bg-emerald-950/50 border-emerald-800/60',
+          label: 'FINDINGS',
         };
       default:
         return {

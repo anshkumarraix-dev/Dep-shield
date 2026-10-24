@@ -33,10 +33,10 @@ export function Sidebar({
     { id: 'dashboard', name: 'Security Overview', icon: LayoutDashboard },
     { id: 'upload', name: 'Lockfile Ingestion', icon: FileCode2 },
     { id: 'findings', name: 'Threat Findings', icon: AlertTriangle, badge: findingsCount > 0 ? String(findingsCount) : undefined, badgeType: 'count' as const },
-    { id: 'dependencies', name: 'Dependency Graph', icon: Layers, badge: 'Roadmap', badgeType: 'roadmap' as const },
+    { id: 'dependencies', name: 'Dependency Inventory', icon: Layers, badge: 'Tree View', badgeType: 'roadmap' as const },
     { id: 'activity', name: 'Audit & Telemetry', icon: History },
-    { id: 'config', name: 'API Configuration', icon: Settings },
   ];
+
 
   const handleItemClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();

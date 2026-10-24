@@ -24,6 +24,12 @@ export function resolveOsvState(in_osv?: boolean | null): OsvLookupState {
   return 'UNKNOWN';
 }
 
+export type QuoteVerificationStatus =
+  | 'simulated_verified'
+  | 'unverified'
+  | 'conflicting'
+  | 'unknown';
+
 export interface EvidenceQuote {
   quote: string;
   context: string;
@@ -31,6 +37,7 @@ export interface EvidenceQuote {
   isSynthetic: boolean;
   publishedAt?: string | null;
   exactQuoteVerified?: boolean;
+  verificationStatus?: QuoteVerificationStatus;
 }
 
 export interface SourceMetadata {
@@ -41,7 +48,10 @@ export interface SourceMetadata {
     | 'Registry Heuristics'
     | 'Dependency Graph Scanner'
     | 'Public Advisory'
-    | 'Issue Tracker';
+    | 'Issue Tracker'
+    | 'Maintainer Advisory'
+    | 'Independent Security Report'
+    | 'Discussion Forum';
   safeUrl?: string;
   publishedAt?: string | null; // Null if unknown / unrecorded
   retrievedAt: string;         // When telemetry was retrieved
@@ -62,9 +72,11 @@ export interface SecurityFinding {
   dependencyPath: string[]; // e.g. ["my-app", "express", "accepts", "negotiator"]
   
   // Threat & Evidence Metrics
-  confidence: number; // 0.0 - 1.0 (e.g. 0.92 for 92%)
-  sourceCount: number;
+  signalCategory: string; // e.g. "Malicious Dependency Injection", "Prototype Pollution", "Account Hijack"
+  confidence: number; // 0.0 - 1.0 (uncalibrated heuristic rule score, e.g. 0.92)
+  sourceCount: number; // Count of deduplicated independent original sources
   riskExplanation: string;
+  deterministicRuleApplied?: string; // Concise explanation of deterministic scoring logic
 
   /**
    * Tri-state OSV indicator:
@@ -87,12 +99,16 @@ export interface SecurityFinding {
   versionMatchExplanation: string;
   evidenceQuotes: EvidenceQuote[];
   sources: SourceMetadata[];
+  corroborationDetails?: string;
+  uncertaintyNotes?: string;
   remediationGuidance: string;
+  recommendedAction?: string;
 
   // Metadata
   isSyntheticDemo: boolean;
   detectedAt: string;
 }
+
 
 export interface FindingsFilterOptions {
   riskLevel?: RiskLevel | 'ALL';

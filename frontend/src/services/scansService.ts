@@ -50,6 +50,9 @@ export function normalizeFinding(raw: Record<string, unknown>): SecurityFinding 
     dependencyPath: Array.isArray(raw.dependencyPath || raw.dependency_path)
       ? ((raw.dependencyPath || raw.dependency_path) as string[])
       : [],
+    signalCategory: String(
+      raw.signalCategory || raw.signal_category || 'Supply Chain Telemetry'
+    ),
     confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.85,
     sourceCount:
       typeof raw.sourceCount === 'number'
@@ -58,6 +61,11 @@ export function normalizeFinding(raw: Record<string, unknown>): SecurityFinding 
         ? raw.source_count
         : 1,
     riskExplanation: String(raw.riskExplanation || raw.risk_explanation || raw.description || ''),
+    deterministicRuleApplied: raw.deterministicRuleApplied
+      ? String(raw.deterministicRuleApplied)
+      : raw.deterministic_rule_applied
+      ? String(raw.deterministic_rule_applied)
+      : undefined,
     in_osv,
     osvLookupState: resolveOsvState(in_osv),
     advisoryId:
@@ -110,6 +118,9 @@ export function normalizeFinding(raw: Record<string, unknown>): SecurityFinding 
               ? (q.published_at as string | null)
               : null,
           exactQuoteVerified: Boolean(q.exactQuoteVerified ?? q.exact_quote_verified ?? true),
+          verificationStatus: (q.verificationStatus ||
+            q.verification_status ||
+            'simulated_verified') as SecurityFinding['evidenceQuotes'][number]['verificationStatus'],
         }))
       : [],
     sources: Array.isArray(raw.sources)
@@ -132,12 +143,19 @@ export function normalizeFinding(raw: Record<string, unknown>): SecurityFinding 
             : undefined,
         }))
       : [],
+    corroborationDetails: s_str(raw.corroborationDetails || raw.corroboration_details),
+    uncertaintyNotes: s_str(raw.uncertaintyNotes || raw.uncertainty_notes),
     remediationGuidance: String(
       raw.remediationGuidance || raw.remediation_guidance || 'Audit dependency in package manifest.'
     ),
+    recommendedAction: s_str(raw.recommendedAction || raw.recommended_action),
     isSyntheticDemo: Boolean(raw.isSyntheticDemo ?? raw.is_synthetic ?? false),
     detectedAt: String(raw.detectedAt || raw.detected_at || new Date().toISOString()),
   };
+}
+
+function s_str(val: unknown): string | undefined {
+  return typeof val === 'string' && val.trim() ? val.trim() : undefined;
 }
 
 export const scansService = {
@@ -172,6 +190,7 @@ export const scansService = {
           (f) =>
             f.title.toLowerCase().includes(query) ||
             f.packageName.toLowerCase().includes(query) ||
+            f.signalCategory.toLowerCase().includes(query) ||
             f.advisoryId?.toLowerCase().includes(query) ||
             f.riskExplanation.toLowerCase().includes(query) ||
             f.installedVersion.toLowerCase().includes(query)
@@ -202,8 +221,8 @@ export const scansService = {
   },
 
   /**
-   * Runs a simulated bounded-progress scan client-side without calling external APIs.
-   * Invokes onProgress callback at every milestone.
+   * Runs the 6-stage simulated bounded-progress demo scan client-side without calling external APIs.
+   * Invokes onProgress callback at every milestone with exact stage info and elapsed time.
    */
   async simulateScan(
     lockfileSummary: LockfileParsedSummary,
@@ -214,22 +233,42 @@ export const scansService = {
     activity: ActivityEvent[];
   }> {
     const startTime = Date.now();
+    const analyzedScope = lockfileSummary.analyzedPackages || [];
+    const analyzedNames = analyzedScope.map((p) => p.name).join(', ') || 'direct dependencies';
 
     for (let i = 0; i < MOCK_SCAN_STAGES.length; i++) {
       const stage = MOCK_SCAN_STAGES[i];
+      let contextualMessage = stage.description;
+
+      if (stage.stage === 'parsing') {
+        contextualMessage = `Parsed ${lockfileSummary.totalPackagesDetected} total dependencies (${lockfileSummary.directDependenciesCount} direct, ${lockfileSummary.transitiveDependenciesCount} transitive).`;
+      } else if (stage.stage === 'baseline') {
+        contextualMessage = `Correlating ${lockfileSummary.totalPackagesDetected} package coordinates against OSV & npm vulnerability baseline...`;
+      } else if (stage.stage === 'signals') {
+        contextualMessage = `Simulating targeted Search for top ${analyzedScope.length || 4} prioritized packages (${analyzedNames})...`;
+      } else if (stage.stage === 'evidence') {
+        contextualMessage = `Validating verbatim quote substrings, dates, and deduplicating registrable domains...`;
+      } else if (stage.stage === 'scoring') {
+        contextualMessage = `Applying deterministic scoring rules (WATCH, HIGH, CRITICAL) without LLM drift...`;
+      } else if (stage.stage === 'findings') {
+        contextualMessage = `Cataloging 6 demonstration findings with actionable developer next steps...`;
+      }
+
       onProgress({
         stage: stage.stage,
         stageLabel: stage.label,
         progressPercent: stage.progressPercent,
-        currentMessage: stage.description,
+        currentMessage: contextualMessage,
         elapsedMs: Date.now() - startTime,
+        stageIndex: i + 1,
+        totalStages: MOCK_SCAN_STAGES.length,
       });
 
-      // Realistic non-blocking simulated step delay (350ms per stage)
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      // Realistic predictable demo interval (320ms per stage)
+      await new Promise((resolve) => setTimeout(resolve, 320));
     }
 
-    // Dynamic metrics based on actual lockfile package counts
+    const elapsedTotal = Date.now() - startTime;
     const totalDeps = lockfileSummary.totalPackagesDetected;
     const directDeps = lockfileSummary.directDependenciesCount;
     const transitiveDeps = lockfileSummary.transitiveDependenciesCount;
@@ -238,6 +277,7 @@ export const scansService = {
       totalDependenciesScanned: totalDeps,
       directCount: directDeps,
       transitiveCount: transitiveDeps,
+      analyzedCount: analyzedScope.length || 4,
       criticalCount: 1,
       highCount: 2,
       watchCount: 2,
@@ -245,49 +285,84 @@ export const scansService = {
       shieldScore: 78,
       osvMatchesCount: 3,
       scannedAt: new Date().toISOString(),
+      scanDurationMs: elapsedTotal,
       isSyntheticDemo: true,
     };
 
     const dynamicActivity: ActivityEvent[] = [
       {
-        id: `ACT-RUN-${Date.now()}-1`,
-        actionType: 'parsing',
-        title: `Ingested ${lockfileSummary.fileName} (v${lockfileSummary.lockfileVersion})`,
-        description: `[Simulated Run] Parsed ${totalDeps} packages (${directDeps} direct, ${transitiveDeps} transitive) for project "${lockfileSummary.projectName || 'depshield-demo'}".`,
+        id: `ACT-RUN-${Date.now()}-6`,
+        actionType: 'evidence_analysis',
+        title: 'Stage 6: Findings & Evidence Synthesis Finalized',
+        description: `[Simulated Run] Synthesized 6 ranked findings across ${totalDeps} parsed packages with remediation guidance.`,
         timestamp: 'Just now',
-        targetPackage: lockfileSummary.fileName,
+        targetPackage: lockfileSummary.projectName || 'depshield-demo-app',
+        status: 'success',
+        isSimulated: true,
+        metadata: { findingsCount: 6, overallScore: 78 },
+      },
+      {
+        id: `ACT-RUN-${Date.now()}-5`,
+        actionType: 'evidence_analysis',
+        title: 'Stage 5: Deterministic Scoring Applied',
+        description:
+          '[Simulated Run] Evaluated multi-source corroboration: assigned 1 CRITICAL, 2 HIGH, 2 WATCH, and 1 INFO finding.',
+        timestamp: 'Just now',
+        targetPackage: 'Deterministic Rules Engine',
         status: 'success',
         isSimulated: true,
       },
       {
-        id: `ACT-RUN-${Date.now()}-2`,
-        actionType: 'osv_check',
-        title: 'OSV Batch Telemetry Correlated',
-        description: `[Simulated Run] Correlated ${totalDeps} dependency coordinates against synthetic OSV vulnerability corpus.`,
+        id: `ACT-RUN-${Date.now()}-4`,
+        actionType: 'evidence_analysis',
+        title: 'Stage 4: Source Evidence & Subdomains Validated',
+        description:
+          '[Simulated Run] Verified short quote substrings and deduplicated subdomains under single registrable domains.',
         timestamp: 'Just now',
-        targetPackage: 'OSV Synthetic Index',
-        status: 'warning',
+        targetPackage: 'Evidence Validator',
+        status: 'success',
         isSimulated: true,
       },
       {
         id: `ACT-RUN-${Date.now()}-3`,
         actionType: 'search',
-        title: 'Supply Chain Threat Signatures Scanned',
-        description: '[Simulated Run] Evaluated lifecycle hooks and behavioral anomalies across dependency graph.',
+        title: `Stage 3: Targeted Signal Discovery (${analyzedScope.length || 4} packages)`,
+        description: `[Simulated Run] Ran targeted signal searches for prioritized direct dependencies: ${analyzedNames}.`,
         timestamp: 'Just now',
-        targetPackage: 'Threat Heuristics Engine',
+        targetPackage: 'Prioritized Scope (<= 4 pkgs)',
         status: 'info',
         isSimulated: true,
       },
-      ...mockActivity.slice(1),
+      {
+        id: `ACT-RUN-${Date.now()}-2`,
+        actionType: 'osv_check',
+        title: 'Stage 2: OSV Vulnerability Baseline Correlated',
+        description: `[Simulated Run] Correlated ${totalDeps} dependency coordinates against synthetic OSV vulnerability corpus.`,
+        timestamp: 'Just now',
+        targetPackage: 'OSV / npm Baseline',
+        status: 'warning',
+        isSimulated: true,
+      },
+      {
+        id: `ACT-RUN-${Date.now()}-1`,
+        actionType: 'parsing',
+        title: `Stage 1: Manifest Parsed (${lockfileSummary.fileName})`,
+        description: `[Simulated Run] Ingested ${totalDeps} package identities (${directDeps} direct, ${transitiveDeps} transitive). Format: v${lockfileSummary.lockfileVersion}.`,
+        timestamp: 'Just now',
+        targetPackage: lockfileSummary.fileName,
+        status: 'success',
+        isSimulated: true,
+      },
     ];
 
     onProgress({
       stage: 'completed',
       stageLabel: 'Scan Completed',
       progressPercent: 100,
-      currentMessage: `Analysis completed: ${totalDeps} packages scanned. 6 findings cataloged.`,
-      elapsedMs: Date.now() - startTime,
+      currentMessage: `Analysis completed: ${totalDeps} packages inventoried. Top ${analyzedScope.length || 4} direct packages evaluated. 6 findings cataloged.`,
+      elapsedMs: elapsedTotal,
+      stageIndex: 6,
+      totalStages: 6,
     });
 
     return {

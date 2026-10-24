@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { SecurityFinding } from '@/types';
+import { SecurityFinding, QuoteVerificationStatus } from '@/types';
 import { RiskBadge, OsvBadge } from './FindingsTable';
 import {
   X,
@@ -14,11 +14,61 @@ import {
   Layers,
   ArrowRight,
   ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  HelpCircle,
+  Scale,
+  Sparkles,
 } from 'lucide-react';
 
 interface EvidenceDrawerProps {
   finding: SecurityFinding | null;
   onClose: () => void;
+}
+
+export function QuoteVerificationBadge({ status }: { status?: QuoteVerificationStatus }) {
+  const styles: Record<QuoteVerificationStatus, { label: string; bg: string; text: string; border: string; desc: string }> = {
+    simulated_verified: {
+      label: 'Simulated Quote Verified',
+      bg: 'bg-emerald-950/50',
+      text: 'text-emerald-300',
+      border: 'border-emerald-800/50',
+      desc: 'Simulated verification against synthetic benchmark fixture (Demo mode - no live network request)',
+    },
+    unverified: {
+      label: 'Unverified Quote',
+      bg: 'bg-amber-950/50',
+      text: 'text-amber-300',
+      border: 'border-amber-800/50',
+      desc: 'Source text was not checked against ground truth',
+    },
+    conflicting: {
+      label: 'Conflicting Evidence',
+      bg: 'bg-rose-950/50',
+      text: 'text-rose-300',
+      border: 'border-rose-800/50',
+      desc: 'Public evidence sources disagree on vulnerability impact or version range',
+    },
+    unknown: {
+      label: 'Unknown Verification',
+      bg: 'bg-slate-800',
+      text: 'text-slate-300',
+      border: 'border-slate-700',
+      desc: 'Insufficient evidence to reach a quote verification conclusion',
+    },
+  };
+
+  const config = styles[status || 'unknown'] || styles.unknown;
+
+  return (
+    <span
+      title={config.desc}
+      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-mono border ${config.bg} ${config.text} ${config.border}`}
+    >
+      <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
+      <span>{config.label}</span>
+    </span>
+  );
 }
 
 export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
@@ -55,10 +105,18 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
           {/* Header */}
           <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-6 py-5 backdrop-blur-md">
             <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <RiskBadge level={finding.riskLevel} />
                   <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
+                  {finding.signalCategory && (
+                    <span className="rounded bg-cyan-950/60 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-cyan-800/50 uppercase">
+                      {finding.signalCategory.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                  {finding.quoteVerification && (
+                    <QuoteVerificationBadge status={finding.quoteVerification} />
+                  )}
                   {finding.cvssScore && (
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-slate-300 border border-slate-700">
                       CVSS {finding.cvssScore.toFixed(1)}
@@ -104,9 +162,9 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
             <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3.5 text-xs text-cyan-300 flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-cyan-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-white">Demonstration Evidence Payload (Synthetic Benchmark)</p>
+                <p className="font-semibold text-white">DEMO MODE — SYNTHETIC THREAT DATA</p>
                 <p className="mt-0.5 text-cyan-200/90 leading-relaxed text-[11px]">
-                  All quotes, source annotations, and advisories are synthetically generated for hackathon demonstration. No external third-party servers were contacted.
+                  All intelligence quotes, provenance entries, and severity scores are synthetic examples for hackathon demonstration. No paid TinyFish or live Gemini requests were executed.
                 </p>
               </div>
             </div>
@@ -190,7 +248,7 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
             </section>
 
             {/* Risk Explanation */}
-            <section className="space-y-2">
+            <section className="space-y-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
                 Threat Assessment & Impact
@@ -198,6 +256,48 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
               <p className="text-xs text-slate-300 bg-slate-950/50 p-4 rounded-xl border border-slate-800/80 leading-relaxed">
                 {finding.riskExplanation}
               </p>
+
+              {/* Deterministic Scoring Rule */}
+              {finding.deterministicRuleApplied && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-1.5 text-xs">
+                  <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-xs">
+                    <Scale className="h-4 w-4" />
+                    <span>Deterministic Rule Applied</span>
+                  </div>
+                  <p className="text-slate-300 font-mono text-[11px] leading-relaxed">
+                    {finding.deterministicRuleApplied}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    Risk severity is assigned strictly by deterministic scoring rules. Gemini extracts factual claims and evidence quotes; it does not assign the final risk level.
+                  </p>
+                </div>
+              )}
+
+              {/* Corroboration Details */}
+              {finding.corroborationDetails && (
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-300 font-semibold text-xs">
+                    <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                    <span>Corroboration & Registrable Domains</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    {finding.corroborationDetails}
+                  </p>
+                </div>
+              )}
+
+              {/* Uncertainty and Conflicting Information */}
+              {finding.uncertaintyNotes && (
+                <div className="rounded-xl border border-amber-900/30 bg-amber-950/20 p-3.5 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-xs">
+                    <AlertTriangle className="h-4 w-4 text-amber-400" />
+                    <span>Uncertainty & Conflicting Signals</span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                    {finding.uncertaintyNotes}
+                  </p>
+                </div>
+              )}
 
               {/* OSV Telemetry Explicit Tri-state Status */}
               <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 text-xs flex items-start gap-3">
@@ -387,10 +487,20 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
             <section className="space-y-2">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Terminal className="h-3.5 w-3.5 text-emerald-400" />
-                Remediation Guidance
+                Remediation & Action Plan
               </h4>
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-2 text-xs">
-                <p className="text-emerald-200/90 leading-relaxed">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3 text-xs">
+                {finding.recommendedAction && (
+                  <div className="rounded-lg bg-emerald-950/40 border border-emerald-500/20 p-2.5">
+                    <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block mb-1">
+                      Recommended Developer Action:
+                    </span>
+                    <p className="text-emerald-200 font-medium leading-relaxed">
+                      {finding.recommendedAction}
+                    </p>
+                  </div>
+                )}
+                <p className="text-emerald-200/90 leading-relaxed text-[11px]">
                   {finding.remediationGuidance}
                 </p>
                 {finding.fixedVersion && (

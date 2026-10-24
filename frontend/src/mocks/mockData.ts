@@ -8,55 +8,75 @@ import {
 /**
  * Scan pipeline stage descriptions for realistic bounded progress.
  */
+/**
+ * Scan pipeline stage descriptions for the finalized 6-step workflow.
+ * All stages in demo mode are visibly simulated with deterministic fixtures.
+ */
 export const MOCK_SCAN_STAGES: ScanStageInfo[] = [
   {
     stage: 'parsing',
-    label: 'Parsing Manifest & Dependency Tree',
-    description: 'Deconstructing package-lock.json packages, resolving direct vs. transitive graph edges...',
-    progressPercent: 20,
+    label: '1. Parsing package-lock.json',
+    description:
+      'Extracting package identities, exact versions, and shortest dependency paths from lockfile manifest...',
+    progressPercent: 16,
   },
   {
     stage: 'baseline',
-    label: 'Baseline Integrity & Schema Checks',
-    description: 'Verifying lockfile format v2/v3, checking sha512 integrity hashes and package registries...',
-    progressPercent: 40,
+    label: '2. Checking OSV/npm baseline',
+    description:
+      'Correlating package coordinates against known OSV vulnerability database and npm registry metadata...',
+    progressPercent: 33,
   },
   {
-    stage: 'osv_checks',
-    label: 'OSV Vulnerability & Registry Telemetry',
-    description: 'Querying Open Source Vulnerabilities (OSV) database for package version ranges and known CVEs...',
-    progressPercent: 65,
+    stage: 'signals',
+    label: '3. Discovering public threat signals',
+    description:
+      'Simulating targeted search for emerging security signals across top prioritized direct packages (max 4)...',
+    progressPercent: 50,
   },
   {
-    stage: 'evidence_collection',
-    label: 'Supply Chain Evidence & Heuristics',
-    description: 'Analyzing pre/postinstall scripts, package age, typo-squatting risks, and anomaly signals...',
+    stage: 'evidence',
+    label: '4. Validating source evidence',
+    description:
+      'Verifying short quote substrings, checking publication dates, and deduplicating registrable domains...',
+    progressPercent: 68,
+  },
+  {
+    stage: 'scoring',
+    label: '5. Assigning deterministic risk status',
+    description:
+      'Applying deterministic multi-source rules to assign WATCH, HIGH, or CRITICAL status without LLM drift...',
     progressPercent: 85,
   },
   {
-    stage: 'risk_evaluation',
-    label: 'Risk Synthesis & Shield Scoring',
-    description: 'Corroborating multi-source telemetry, calculating confidence ratings, and generating remediation guidance...',
+    stage: 'findings',
+    label: '6. Preparing findings',
+    description:
+      'Synthesizing findings overview, evidence citations, uncertainty notes, and developer remediation steps...',
     progressPercent: 100,
   },
 ];
 
 /**
  * Synthetic Scan Summary Metrics.
+ * Internally consistent with mockFindings (1 Critical, 2 High, 2 Watch, 1 Info, 3 OSV matches).
  */
 export const mockSummaryMetrics: ScanSummaryMetrics = {
   totalDependenciesScanned: 384,
   directCount: 22,
   transitiveCount: 362,
+  analyzedCount: 4, // Top 4 packages prioritized for deep investigation
   criticalCount: 1,
   highCount: 2,
   watchCount: 2,
   infoCount: 1,
-  shieldScore: 78,
+  shieldScore: 78, // Explicitly labelled uncalibrated demo heuristic score
   osvMatchesCount: 3,
   scannedAt: new Date().toISOString(),
+  scanDurationMs: 1850,
   isSyntheticDemo: true,
 };
+
 
 /**
  * Rich synthetic security findings across CRITICAL, HIGH, WATCH, and INFO levels.
@@ -74,10 +94,13 @@ export const mockFindings: SecurityFinding[] = [
     status: 'OPEN',
     dependencyType: 'direct',
     dependencyPath: ['depshield-demo-app', 'lodash@4.17.20'],
+    signalCategory: 'Prototype Pollution',
     confidence: 0.98,
     sourceCount: 2, // Deduplicated independent original sources (reposts filtered)
     riskExplanation:
       'The installed version 4.17.20 is susceptible to prototype pollution when merging untrusted input, allowing attackers to modify Object.prototype attributes.',
+    deterministicRuleApplied:
+      'CRITICAL: >=2 independent original sources confirmed the vulnerability for installed version 4.17.20 with critical impact (CVSS 9.8). Subdomains deduplicated under single registrable domains.',
     in_osv: true,
     osvLookupState: 'MATCHED',
     advisoryId: 'SYNTH-OSV-2026-081',
@@ -97,6 +120,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: '2020-07-15T18:15:00Z',
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
       {
         quote:
@@ -106,6 +130,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: '2020-07-02T14:22:00Z',
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
     ],
     sources: [
@@ -128,8 +153,13 @@ export const mockFindings: SecurityFinding[] = [
         provenanceNote: 'Primary contemporaneous public bug report',
       },
     ],
+    corroborationDetails:
+      'Corroborated across 2 distinct registrable domains (osv.dev mirror + github.com issue). Secondary blog reposts excluded from independent source tally.',
+    uncertaintyNotes:
+      'Public disclosure preceded official advisory by 13 days. Timeline lead-time verified against contemporaneous commit timestamps.',
     remediationGuidance:
       'Update root package.json dependency: "lodash": "^4.17.21" and run `npm update lodash`. No major breaking API modifications exist between 4.17.20 and 4.17.21.',
+    recommendedAction: 'Upgrade dependency to lodash@4.17.21 immediately.',
     isSyntheticDemo: true,
     detectedAt: '2026-10-24T09:15:00Z',
   },
@@ -144,10 +174,13 @@ export const mockFindings: SecurityFinding[] = [
     status: 'OPEN',
     dependencyType: 'direct',
     dependencyPath: ['depshield-demo-app', 'tar@6.1.13'],
+    signalCategory: 'Path Traversal',
     confidence: 0.91,
     sourceCount: 2,
     riskExplanation:
       'Simulated path traversal vulnerability during archive extraction allows directory escape when encountering specially crafted symlinks in tar headers.',
+    deterministicRuleApplied:
+      'HIGH: >=2 independent original sources with confirmed version match (< 6.2.1) and high severity (CVSS 7.8).',
     in_osv: true,
     osvLookupState: 'MATCHED',
     advisoryId: 'SYNTH-OSV-2026-144',
@@ -167,6 +200,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: '2021-09-01T12:15:00Z',
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
     ],
     sources: [
@@ -174,14 +208,28 @@ export const mockFindings: SecurityFinding[] = [
         name: 'DepShield Supply Chain Threat Intelligence',
         sourceType: 'Dependency Graph Scanner',
         safeUrl: 'https://example.com/demo/advisories/SYNTH-OSV-2026-144',
-        publishedAt: null, // Internal scan heuristic date not claimed as historical external publication
+        publishedAt: null,
         retrievedAt: '2026-10-24T09:15:04Z',
         isOriginalSource: true,
         provenanceNote: 'Primary manifest graph correlation analysis',
       },
+      {
+        name: 'Security Research Advisory Note',
+        sourceType: 'Public Advisory',
+        safeUrl: 'https://example.com/demo/advisories/tar-pax-headers',
+        publishedAt: '2021-08-31T16:00:00Z',
+        retrievedAt: '2026-10-24T09:15:05Z',
+        isOriginalSource: true,
+        provenanceNote: 'Vendor security advisory publication',
+      },
     ],
+    corroborationDetails:
+      'Two independent sources corroborated symlink escape vector on Linux extraction runtimes.',
+    uncertaintyNotes:
+      'Impact depends on whether untrusted archives are unpacked without destination directory sandboxing.',
     remediationGuidance:
       'Update package.json to require "tar": "^6.2.1". Verify that archive unpack routines sanitize destination directories.',
+    recommendedAction: 'Bump tar version to ^6.2.1 and sanitize extract destination paths.',
     isSyntheticDemo: true,
     detectedAt: '2026-10-24T09:15:04Z',
   },
@@ -196,10 +244,13 @@ export const mockFindings: SecurityFinding[] = [
     status: 'INVESTIGATING',
     dependencyType: 'transitive',
     dependencyPath: ['depshield-demo-app', 'axios@1.6.8', 'follow-redirects@1.15.4'],
+    signalCategory: 'Credential Leakage',
     confidence: 0.89,
     sourceCount: 2,
     riskExplanation:
       'Transitive dependency follow-redirects improperly forwards confidential Authorization HTTP headers when following HTTP 302 redirects to different third-party domains.',
+    deterministicRuleApplied:
+      'HIGH: 2 independent sources with confirmed affected version (< 1.15.6) and high risk CVSS score (7.4).',
     in_osv: true,
     osvLookupState: 'MATCHED',
     advisoryId: 'SYNTH-OSV-2026-219',
@@ -219,6 +270,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: '2024-03-14T17:15:00Z',
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
     ],
     sources: [
@@ -231,16 +283,30 @@ export const mockFindings: SecurityFinding[] = [
         isOriginalSource: false,
         provenanceNote: 'OSV synchronized upstream security database',
       },
+      {
+        name: 'Security Advisory: Cross-Origin Token Leak',
+        sourceType: 'Independent Security Report',
+        safeUrl: 'https://example.com/demo/reports/follow-redirects-leak',
+        publishedAt: '2024-02-12T08:10:00Z',
+        retrievedAt: '2026-10-24T09:15:07Z',
+        isOriginalSource: true,
+        provenanceNote: 'Contemporaneous independent vulnerability report',
+      },
     ],
+    corroborationDetails:
+      'Corroborated by independent security report and subsequent vendor advisory notice.',
+    uncertaintyNotes:
+      'Only affects clients making requests with Authorization headers that follow external redirect targets.',
     remediationGuidance:
       'Add package override in package.json: "overrides": { "follow-redirects": "^1.15.6" } or upgrade axios to the latest stable release.',
+    recommendedAction: 'Add package.json override for follow-redirects@^1.15.6.',
     isSyntheticDemo: true,
     detectedAt: '2026-10-24T09:15:06Z',
   },
   {
     id: 'DEP-SYNTH-004',
     title: 'Obfuscated Post-install Script in Synthetic Demonstration Package',
-    packageName: 'demo-lifecycle-plugin', // Purely synthetic package name to avoid fake allegations against real packages
+    packageName: 'demo-lifecycle-plugin', // Purely synthetic package name
     installedVersion: '1.0.4',
     fixedVersion: undefined,
     affectedRange: 'N/A (Heuristic Flag)',
@@ -248,18 +314,20 @@ export const mockFindings: SecurityFinding[] = [
     status: 'OPEN',
     dependencyType: 'transitive',
     dependencyPath: ['depshield-demo-app', 'express@4.19.2', 'demo-lifecycle-plugin@1.0.4'],
+    signalCategory: 'Behavioral Anomaly',
     confidence: 0.76,
     sourceCount: 1, // Single source, capped at WATCH per severity policy
     riskExplanation:
       'Static analysis flagged a lifecycle script pattern that invokes system shells during `npm install`. Flagged by DepShield behavioral heuristics on a synthetic demonstration package.',
+    deterministicRuleApplied:
+      'WATCH: Exactly 1 source flagged behavioral anomaly. Single-source findings can NEVER exceed WATCH per DepShield scoring policy.',
     in_osv: null, // OSV query not performed (provisional heuristic only)
     osvLookupState: 'PROVISIONAL',
     advisoryId: 'SYNTH-WATCH-2026-004',
     cvssScore: 5.2,
-    // Timeline Milestones: No official CVE or vendor advisory exists for early provisional signals
     firstSignalAt: '2026-10-23T19:40:00Z',
-    officialAdvisoryAt: null, // Unknown / None
-    cvePublishedAt: null,     // Unassigned (provisional early signal)
+    officialAdvisoryAt: null,
+    cvePublishedAt: null,
     versionMatchExplanation:
       'No CVE match in standard vulnerability databases; flagged by DepShield Supply-Chain Behavioral Heuristics as an early watch item.',
     evidenceQuotes: [
@@ -271,6 +339,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: null,
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
     ],
     sources: [
@@ -278,14 +347,19 @@ export const mockFindings: SecurityFinding[] = [
         name: 'DepShield Behavioral Heuristic Analyzer',
         sourceType: 'Registry Heuristics',
         safeUrl: 'https://example.com/demo/heuristics/lifecycle-scripts',
-        publishedAt: null, // Local scanner heuristic date is not an external publication
+        publishedAt: null,
         retrievedAt: '2026-10-24T09:15:08Z',
         isOriginalSource: true,
         provenanceNote: 'Primary AST syntax rule evaluator',
       },
     ],
+    corroborationDetails:
+      'Uncorroborated single-source signal. Awaiting independent community or advisory verification.',
+    uncertaintyNotes:
+      'Provisional heuristic analysis; script may perform legitimate compilation steps. Manual code audit recommended.',
     remediationGuidance:
       'Run `npm config set ignore-scripts true` in production environments or audit `scripts/verify-env.js` before executing automated CI builds.',
+    recommendedAction: 'Audit postinstall script contents or configure `ignore-scripts = true`.',
     isSyntheticDemo: true,
     detectedAt: '2026-10-24T09:15:08Z',
   },
@@ -300,15 +374,17 @@ export const mockFindings: SecurityFinding[] = [
     status: 'OPEN',
     dependencyType: 'transitive',
     dependencyPath: ['depshield-demo-app', 'express@4.19.2', 'util@0.10.3', 'inherits@2.0.4'],
+    signalCategory: 'Maintenance Hygiene',
     confidence: 0.82,
     sourceCount: 1, // Single source, capped at WATCH per severity policy
     riskExplanation:
       'Package has not published an update or security triage commit in over 730 days. Unmaintained legacy utilities present abandonment and takeover risks.',
+    deterministicRuleApplied:
+      'WATCH: Single-source telemetry check. Does not represent an active exploit, but represents an architectural hygiene watchpoint.',
     in_osv: false, // Explicitly queried in OSV and verified clean
     osvLookupState: 'CLEAN',
     advisoryId: 'SYNTH-HYGIENE-2026-012',
     cvssScore: 4.1,
-    // Timeline Milestones: No vulnerability or advisory
     firstSignalAt: null,
     officialAdvisoryAt: null,
     cvePublishedAt: null,
@@ -323,6 +399,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: null,
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
     ],
     sources: [
@@ -336,8 +413,13 @@ export const mockFindings: SecurityFinding[] = [
         provenanceNote: 'Registry maintainer activity telemetry',
       },
     ],
+    corroborationDetails:
+      'Metric derived directly from public npm registry publish history.',
+    uncertaintyNotes:
+      'Package is stable and feature-complete; lack of updates does not necessarily imply malicious tampering.',
     remediationGuidance:
       'Consider refactoring to native JavaScript `Object.create` or `class ... extends` to remove legacy polyfill dependency.',
+    recommendedAction: 'Verify whether modern ECMAScript class inheritance replaces this package.',
     isSyntheticDemo: true,
     detectedAt: '2026-10-24T09:15:10Z',
   },
@@ -352,15 +434,17 @@ export const mockFindings: SecurityFinding[] = [
     status: 'OPEN',
     dependencyType: 'direct',
     dependencyPath: ['depshield-demo-app', 'axios@1.6.8'],
+    signalCategory: 'Policy Linter',
     confidence: 0.95,
     sourceCount: 1,
     riskExplanation:
       'Direct requirement in package.json uses caret prefix (`^1.6.8`), which permits automatic minor and patch updates on subsequent installs without lockfile pins.',
+    deterministicRuleApplied:
+      'INFO: Informational policy linter notice. Low operational impact with zero known baseline vulnerabilities.',
     in_osv: false, // Clean in OSV database
     osvLookupState: 'CLEAN',
     advisoryId: 'SYNTH-INFO-2026-099',
     cvssScore: 2.1,
-    // Timeline Milestones: Informational best practice only
     firstSignalAt: null,
     officialAdvisoryAt: null,
     cvePublishedAt: null,
@@ -375,6 +459,7 @@ export const mockFindings: SecurityFinding[] = [
         isSynthetic: true,
         publishedAt: null,
         exactQuoteVerified: true,
+        verificationStatus: 'simulated_verified',
       },
     ],
     sources: [
@@ -388,22 +473,27 @@ export const mockFindings: SecurityFinding[] = [
         provenanceNote: 'Static manifest rule evaluator',
       },
     ],
+    corroborationDetails:
+      'Evaluated from root package.json dependency specification.',
+    uncertaintyNotes:
+      'Using package-lock.json with `npm ci` mitigates floating dependency risks.',
     remediationGuidance:
       'Pin exact version in package.json ("axios": "1.6.8") or use `npm ci` in continuous integration to strictly enforce package-lock.json.',
+    recommendedAction: 'Pin exact dependency versions or ensure CI strictly runs `npm ci`.',
     isSyntheticDemo: true,
     detectedAt: '2026-10-24T09:15:12Z',
   },
 ];
 
 /**
- * Rich mock activity events covering parsing, OSV checks, Search, Fetch, and Evidence Analysis.
+ * Rich mock activity events covering the 6 distinct workflow stages.
  * Clearly tagged with isSimulated: true.
  */
 export const mockActivity: ActivityEvent[] = [
   {
     id: 'ACT-001',
     actionType: 'evidence_analysis',
-    title: 'Evidence Correlation & Synthesis Finalized',
+    title: 'Stage 6: Findings & Remediation Guidance Prepared',
     description:
       '[Simulated Run] Evaluated 6 supply-chain findings across 384 resolved packages. Generated risk scores and remediation matrix.',
     timestamp: 'Just now',
@@ -414,62 +504,61 @@ export const mockActivity: ActivityEvent[] = [
   },
   {
     id: 'ACT-002',
-    actionType: 'osv_check',
-    title: 'OSV Match: lodash@4.17.20 Flagged (CRITICAL)',
+    actionType: 'evidence_analysis',
+    title: 'Stage 5: Deterministic Scoring Applied',
     description:
-      '[Simulated Run] Correlated installed version against simulated OSV feed entry SYNTH-OSV-2026-081 (Prototype Pollution).',
-    timestamp: '15 seconds ago',
-    targetPackage: 'lodash@4.17.20',
-    status: 'flagged',
+      '[Simulated Run] Applied multi-source corroboration rules: assigned 1 CRITICAL, 2 HIGH, 2 WATCH, and 1 INFO finding without LLM drift.',
+    timestamp: '10 seconds ago',
+    targetPackage: 'Deterministic Rules Engine',
+    status: 'success',
     isSimulated: true,
-    metadata: { cve: 'SYNTH-OSV-2026-081', cvss: 9.8 },
   },
   {
     id: 'ACT-003',
-    actionType: 'search',
-    title: 'Search: Threat Intelligence Vector Scan',
+    actionType: 'evidence_analysis',
+    title: 'Stage 4: Source Evidence Validated',
     description:
-      '[Simulated Run] Checked registry hashes against known malicious campaigns and typo-squatting namespaces.',
-    timestamp: '35 seconds ago',
-    targetPackage: 'registry/npm',
-    status: 'info',
+      '[Simulated Run] Verified verbatim evidence quote substrings, checked publication dates, and deduplicated subdomains to registrable domains.',
+    timestamp: '25 seconds ago',
+    targetPackage: 'Evidence Validator',
+    status: 'success',
     isSimulated: true,
-    metadata: { packagesChecked: 384, matches: 0 },
   },
   {
     id: 'ACT-004',
-    actionType: 'fetch',
-    title: 'Fetch: Registry Integrity Metadata Queried',
+    actionType: 'search',
+    title: 'Stage 3: Targeted Signal Discovery',
     description:
-      '[Simulated Run] Retrieved cryptographic tarball signatures and publisher attestations for transitive node_modules.',
-    timestamp: '50 seconds ago',
-    targetPackage: 'node_modules/tar',
+      '[Simulated Run] Scanned emerging signals across top 4 prioritized packages (lodash, tar, express, axios). Capped at 2 queries/package.',
+    timestamp: '40 seconds ago',
+    targetPackage: 'Prioritized Scope (<= 4 pkgs)',
     status: 'info',
     isSimulated: true,
-    metadata: { verifiedHashes: 384 },
+    metadata: { packagesChecked: 4, queriesRun: 8 },
   },
   {
     id: 'ACT-005',
     actionType: 'osv_check',
-    title: 'OSV Batch Query Completed',
+    title: 'Stage 2: OSV & npm Baseline Queried',
     description:
-      '[Simulated Run] Batch query submitted for 384 package coordinates against Open Source Vulnerability mock index.',
-    timestamp: '1 minute ago',
-    targetPackage: 'all-dependencies',
+      '[Simulated Run] Correlated package coordinates against OSV vulnerability database. Identified 3 baseline matches (lodash, tar, follow-redirects).',
+    timestamp: '55 seconds ago',
+    targetPackage: 'OSV / npm Registry',
     status: 'warning',
     isSimulated: true,
-    metadata: { queries: 384, hits: 3 },
+    metadata: { queries: 384, matches: 3 },
   },
   {
     id: 'ACT-006',
     actionType: 'parsing',
-    title: 'Manifest Parse: package-lock.json v3 Validated',
+    title: 'Stage 1: Manifest Parsed (v3 Format)',
     description:
-      '[Simulated Run] Successfully ingested lockfile structure. Identified 22 direct and 362 transitive dependencies.',
-    timestamp: '2 minutes ago',
+      '[Simulated Run] Successfully ingested package-lock.json. Extracted 22 direct and 362 transitive dependencies without double-counting identities.',
+    timestamp: '1 minute ago',
     targetPackage: 'package-lock.json',
     status: 'success',
     isSimulated: true,
     metadata: { format: 'v3', totalDeps: 384 },
   },
 ];
+

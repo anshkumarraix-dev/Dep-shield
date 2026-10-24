@@ -43,18 +43,14 @@ export function Header({
 
       {/* Right controls */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Environment Mode Indicator Badge */}
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs">
-          <span
-            className={`inline-block h-2 w-2 rounded-full ${
-              envConfig.useMocks ? 'bg-cyan-400 animate-pulse' : 'bg-emerald-400'
-            }`}
-          />
-          <span className="text-slate-400 font-medium">Mode:</span>
-          <span className="font-semibold text-slate-200">
-            {envConfig.useMocks ? 'Mock Demo' : 'Live FastAPI'}
+        {/* Prominent Demo Mode Indicator Badge */}
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs">
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+          <span className="font-semibold tracking-wide text-amber-300 font-mono text-[11px]">
+            DEMO MODE — SYNTHETIC THREAT DATA
           </span>
         </div>
+
 
         {/* Backend Target indicator */}
         <div className="hidden md:flex items-center gap-1.5 rounded-md bg-slate-900/60 px-2.5 py-1 text-xs text-slate-400 font-mono border border-slate-800/80">

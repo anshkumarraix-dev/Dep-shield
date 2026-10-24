@@ -131,7 +131,7 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
           </p>
         </div>
 
-        {/* Demo Replay Button */}
+        {/* Sample Lockfile Button */}
         <button
           onClick={handleLoadSample}
           disabled={isScanning}
@@ -139,7 +139,7 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
           title="Load preconfigured synthetic demo lockfile with simulated signals"
         >
           <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-          <span>Load Synthetic Demo Lockfile (Replay)</span>
+          <span>Use Sample Lockfile</span>
         </button>
       </div>
 
@@ -191,6 +191,9 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
                     <span className="text-sm font-semibold text-white font-mono">
                       {selectedSummary.fileName}
                     </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      ({(selectedSummary.fileSizeBytes / 1024).toFixed(1)} KB)
+                    </span>
                     {selectedSummary.isSyntheticSample && (
                       <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono text-amber-400 border border-amber-500/30">
                         Synthetic Demo Sample
@@ -215,6 +218,12 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
                       </strong>{' '}
                       ({selectedSummary.directDependenciesCount} direct, {selectedSummary.transitiveDependenciesCount} transitive)
                     </span>
+                    <span>
+                      Analysed Scope:{' '}
+                      <strong className="text-emerald-400">
+                        {selectedSummary.analyzedPackages?.length || 4} direct
+                      </strong>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -227,7 +236,7 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Change File</span>
+                  <span>Replace File</span>
                 </button>
                 <button
                   onClick={() => onStartScan(selectedSummary)}
@@ -235,10 +244,18 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
                   className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2 text-xs font-semibold text-slate-950 shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>{isScanning ? 'Scan Running...' : 'Execute DepShield Scan'}</span>
+                  <span>{isScanning ? 'Scan Running...' : 'Start Demo Scan'}</span>
                 </button>
               </div>
             </div>
+
+            {/* Edge-case warning if applicable */}
+            {selectedSummary.warningMessage && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <span>{selectedSummary.warningMessage}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -257,14 +274,15 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-cyan-400" />
             <span>
-              <strong>Safe Demonstration Mode:</strong> All scans execute 100% locally with synthetic intelligence corpus. Complements standard scanners (Dependabot/Snyk/OSV). Zero external network requests.
+              <strong>Safe Demonstration Mode:</strong> All scans execute 100% locally with synthetic threat corpus. Complements standard scanners (Dependabot/Snyk/OSV). Zero external network requests.
             </span>
           </div>
-          <span className="hidden md:inline font-mono text-[10px] text-slate-500">
-            NEXT_PUBLIC_USE_MOCKS=1
+          <span className="hidden md:inline font-mono text-[10px] text-amber-400/90 font-medium">
+            DEMO MODE — SYNTHETIC THREAT DATA
           </span>
         </div>
       </div>
+
     </div>
   );
 }

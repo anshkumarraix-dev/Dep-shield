@@ -3,10 +3,11 @@
 import React from 'react';
 import {
   FileSearch,
-  CheckCircle2,
   Database,
-  ShieldAlert,
+  Search,
+  CheckCircle2,
   BarChart3,
+  ShieldAlert,
   Loader2,
   Terminal,
 } from 'lucide-react';
@@ -19,14 +20,24 @@ interface ScanProgressBarProps {
 export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
   const steps = [
     { key: 'parsing', label: '1. Parsing', icon: FileSearch },
-    { key: 'baseline', label: '2. Baseline', icon: CheckCircle2 },
-    { key: 'osv_checks', label: '3. OSV Checks', icon: Database },
-    { key: 'evidence_collection', label: '4. Evidence', icon: ShieldAlert },
-    { key: 'risk_evaluation', label: '5. Risk Synthesis', icon: BarChart3 },
+    { key: 'baseline', label: '2. Baseline', icon: Database },
+    { key: 'signals', label: '3. Signals', icon: Search },
+    { key: 'evidence', label: '4. Evidence', icon: CheckCircle2 },
+    { key: 'scoring', label: '5. Scoring', icon: BarChart3 },
+    { key: 'findings', label: '6. Findings', icon: ShieldAlert },
   ];
 
   const getStepStatus = (stepKey: string) => {
-    const stageOrder = ['idle', 'parsing', 'baseline', 'osv_checks', 'evidence_collection', 'risk_evaluation', 'completed'];
+    const stageOrder = [
+      'idle',
+      'parsing',
+      'baseline',
+      'signals',
+      'evidence',
+      'scoring',
+      'findings',
+      'completed',
+    ];
     const currentIndex = stageOrder.indexOf(progressState.stage);
     const stepIndex = stageOrder.indexOf(stepKey);
 
@@ -55,8 +66,8 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
               <h3 className="text-sm font-semibold text-white">
                 Simulated Supply Chain Threat Scan in Progress
               </h3>
-              <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-cyan-500/30">
-                100% Offline
+              <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-mono text-amber-300 border border-amber-500/30">
+                DEMO MODE — 100% OFFLINE
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">{progressState.currentMessage}</p>
@@ -81,8 +92,8 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
         />
       </div>
 
-      {/* Step Indicators */}
-      <div className="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-2">
+      {/* 6 Step Indicators */}
+      <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {steps.map((step) => {
           const status = getStepStatus(step.key);
           const Icon = step.icon;
@@ -109,11 +120,16 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
         })}
       </div>
 
-      {/* Telemetry Console line */}
-      <div className="mt-4 flex items-center gap-2 rounded-lg bg-slate-950/70 px-3 py-1.5 text-[11px] font-mono text-slate-400 border border-slate-800">
-        <Terminal className="h-3.5 w-3.5 text-cyan-400 flex-shrink-0" />
-        <span className="text-cyan-400">depshield@local:</span>
-        <span className="truncate">{progressState.stageLabel} &bull; {progressState.currentMessage}</span>
+      {/* Telemetry Console line with Scope Note */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-slate-950/70 px-3 py-1.5 text-[11px] font-mono text-slate-400 border border-slate-800">
+        <div className="flex items-center gap-2 truncate">
+          <Terminal className="h-3.5 w-3.5 text-cyan-400 flex-shrink-0" />
+          <span className="text-cyan-400">depshield@local:</span>
+          <span className="truncate">{progressState.stageLabel} &bull; {progressState.currentMessage}</span>
+        </div>
+        <span className="text-[10px] text-slate-500 shrink-0">
+          Scope: at most 4 direct packages analysed
+        </span>
       </div>
     </div>
   );

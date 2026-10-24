@@ -16,46 +16,61 @@ import {
   Database,
   SlidersHorizontal,
   X,
+  AlertOctagon,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  ArrowUpDown,
 } from 'lucide-react';
 
 interface FindingsTableProps {
   findings: SecurityFinding[];
   onSelectFinding: (finding: SecurityFinding) => void;
   selectedFindingId?: string;
+  initialRiskFilter?: RiskLevel | 'ALL';
 }
 
 export function RiskBadge({ level }: { level: RiskLevel }) {
-  const styles: Record<RiskLevel, { bg: string; text: string; border: string }> = {
+  const styles: Record<
+    RiskLevel,
+    { bg: string; text: string; border: string; icon: React.ComponentType<{ className?: string }> }
+  > = {
     CRITICAL: {
       bg: 'bg-rose-500/15',
       text: 'text-rose-400 font-bold',
       border: 'border-rose-500/30',
+      icon: AlertOctagon,
     },
     HIGH: {
       bg: 'bg-orange-500/15',
       text: 'text-orange-400 font-bold',
       border: 'border-orange-500/30',
+      icon: AlertTriangle,
     },
     WATCH: {
       bg: 'bg-amber-500/15',
       text: 'text-amber-400 font-semibold',
       border: 'border-amber-500/30',
+      icon: AlertCircle,
     },
     INFO: {
       bg: 'bg-blue-500/15',
       text: 'text-blue-400 font-medium',
       border: 'border-blue-500/30',
+      icon: Info,
     },
   };
 
-  const style = styles[level] || styles.INFO;
+  const config = styles[level] || styles.INFO;
+  const Icon = config.icon;
 
   return (
     <span
-      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${style.bg} ${style.text} ${style.border}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${config.bg} ${config.text} ${config.border}`}
       role="status"
     >
-      {level}
+      <Icon className="h-3 w-3 flex-shrink-0" />
+      <span>{level}</span>
     </span>
   );
 }
@@ -114,19 +129,28 @@ export function OsvBadge({
   );
 }
 
+const SEVERITY_ORDER: Record<RiskLevel, number> = {
+  CRITICAL: 4,
+  HIGH: 3,
+  WATCH: 2,
+  INFO: 1,
+};
+
 export function FindingsTable({
   findings,
   onSelectFinding,
   selectedFindingId,
+  initialRiskFilter = 'ALL',
 }: FindingsTableProps) {
-  const [selectedRisk, setSelectedRisk] = useState<RiskLevel | 'ALL'>('ALL');
+  const [selectedRisk, setSelectedRisk] = useState<RiskLevel | 'ALL'>(initialRiskFilter);
   const [selectedDepType, setSelectedDepType] = useState<DependencyType | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'severity' | 'package'>('severity');
 
   const riskFilters: (RiskLevel | 'ALL')[] = ['ALL', 'CRITICAL', 'HIGH', 'WATCH', 'INFO'];
 
   const filteredFindings = useMemo(() => {
-    return findings.filter((f) => {
+    const list = findings.filter((f) => {
       // Risk filter
       if (selectedRisk !== 'ALL' && f.riskLevel !== selectedRisk) {
         return false;
@@ -135,18 +159,37 @@ export function FindingsTable({
       if (selectedDepType !== 'ALL' && f.dependencyType !== selectedDepType) {
         return false;
       }
-      // Search query
+      // Search query across package name, version, title, category, advisory
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchesPackage = f.packageName.toLowerCase().includes(query);
+        const matchesVersion = f.installedVersion.toLowerCase().includes(query);
         const matchesTitle = f.title.toLowerCase().includes(query);
+        const matchesCategory = (f.signalCategory || '').toLowerCase().includes(query);
         const matchesAdvisory = f.advisoryId?.toLowerCase().includes(query) || false;
         const matchesExplanation = f.riskExplanation.toLowerCase().includes(query);
-        return matchesPackage || matchesTitle || matchesAdvisory || matchesExplanation;
+        return (
+          matchesPackage ||
+          matchesVersion ||
+          matchesTitle ||
+          matchesCategory ||
+          matchesAdvisory ||
+          matchesExplanation
+        );
       }
       return true;
     });
-  }, [findings, selectedRisk, selectedDepType, searchQuery]);
+
+    return list.sort((a, b) => {
+      if (sortBy === 'severity') {
+        const diff = SEVERITY_ORDER[b.riskLevel] - SEVERITY_ORDER[a.riskLevel];
+        if (diff !== 0) return diff;
+        return a.packageName.localeCompare(b.packageName);
+      }
+      return a.packageName.localeCompare(b.packageName);
+    });
+  }, [findings, selectedRisk, selectedDepType, searchQuery, sortBy]);
+
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/85 p-5 shadow-xl">
@@ -193,8 +236,36 @@ export function FindingsTable({
           ))}
         </div>
 
-        {/* Secondary controls: Dep Type Toggle & Search */}
-        <div className="flex items-center gap-2">
+        {/* Secondary controls: Dep Type Toggle, Sort & Search */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sort Control */}
+          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950/80 p-0.5 text-xs">
+            <span className="px-2 text-[10px] text-slate-500 font-medium flex items-center gap-1">
+              <ArrowUpDown className="h-3 w-3 text-slate-400" />
+              Sort:
+            </span>
+            <button
+              onClick={() => setSortBy('severity')}
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                sortBy === 'severity'
+                  ? 'bg-slate-800 text-cyan-300'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Severity
+            </button>
+            <button
+              onClick={() => setSortBy('package')}
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                sortBy === 'package'
+                  ? 'bg-slate-800 text-cyan-300'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Name (A-Z)
+            </button>
+          </div>
+
           {/* Direct / Transitive Toggle */}
           <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950/80 p-0.5 text-xs">
             <button
@@ -230,7 +301,7 @@ export function FindingsTable({
           </div>
 
           {/* Search Input */}
-          <div className="relative flex-1 md:w-64">
+          <div className="relative flex-1 md:w-56">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
             <input
               id="findings-search-input"
@@ -238,7 +309,7 @@ export function FindingsTable({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search package, CVE, or title..."
+              placeholder="Search package, category, title..."
               className="w-full rounded-lg border border-slate-800 bg-slate-950/80 py-1 pl-8 pr-7 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
             />
             {searchQuery && (
@@ -341,8 +412,15 @@ export function FindingsTable({
 
                     {/* Title & Explanation */}
                     <td className="py-3 pr-4 max-w-sm">
-                      <div className="font-medium text-slate-200 line-clamp-1">
-                        {finding.title}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {finding.signalCategory && (
+                          <span className="rounded bg-cyan-950/60 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 border border-cyan-800/40">
+                            {finding.signalCategory.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                        <span className="font-medium text-slate-200 line-clamp-1">
+                          {finding.title}
+                        </span>
                       </div>
                       <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
                         {finding.riskExplanation}

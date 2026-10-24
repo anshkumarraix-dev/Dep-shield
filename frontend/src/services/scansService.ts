@@ -311,6 +311,8 @@ export const scansService = {
       await new Promise((resolve) => setTimeout(resolve, 380));
     }
 
+    const elapsedTotal = Date.now() - startTime;
+
     const dynamicSummary: ScanSummaryMetrics = {
       totalDependenciesScanned: totalDeps,
       directCount: directDeps,
@@ -393,7 +395,6 @@ export const scansService = {
       },
     ];
 
-    const elapsedTotal = Date.now() - startTime;
     logs.push(`[${getTimestamp()}] [COMPLETE] Scan finalized: 6 findings compiled in ${(elapsedTotal / 1000).toFixed(2)}s. Zero network drift.`);
 
     onProgress?.({

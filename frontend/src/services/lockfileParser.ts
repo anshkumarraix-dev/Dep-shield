@@ -228,46 +228,121 @@ export const SAMPLE_DEMO_PACKAGE_LOCK = JSON.stringify(
         name: "depshield-demo-app",
         version: "2.1.0",
         dependencies: {
-          "demo-server": "^4.19.2",
-          "demo-client": "^1.6.8",
-          "demo-core": "^4.17.20",
-          "demo-auth": "^9.0.0",
-          "demo-archive": "^6.1.13"
+          "express": "^4.19.2",
+          "lodash": "^4.17.20",
+          "tar": "^6.1.13",
+          "axios": "^1.6.8",
+          "jsonwebtoken": "^9.0.0"
         },
         devDependencies: {
           "typescript": "^5.4.5",
           "eslint": "^8.57.0"
         }
       },
-      "node_modules/demo-core": {
+      "node_modules/lodash": {
         "version": "4.17.20",
-        "resolved": "https://example.com/demo/packages/demo-core-4.17.20.tgz",
-        "integrity": "sha512-synth-integrity-demo-core-hash-only=="
+        "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.20.tgz",
+        "integrity": "sha512-synth-integrity-lodash-demo-hash=="
       },
-      "node_modules/demo-archive": {
+      "node_modules/tar": {
         "version": "6.1.13",
-        "resolved": "https://example.com/demo/packages/demo-archive-6.1.13.tgz",
-        "integrity": "sha512-synth-integrity-demo-archive-hash-only=="
+        "resolved": "https://registry.npmjs.org/tar/-/tar-6.1.13.tgz",
+        "integrity": "sha512-synth-integrity-tar-demo-hash=="
       },
-      "node_modules/demo-client": {
-        "version": "1.6.8",
-        "resolved": "https://example.com/demo/packages/demo-client-1.6.8.tgz",
-        "integrity": "sha512-synth-integrity-demo-client-hash-only=="
-      },
-      "node_modules/demo-server": {
+      "node_modules/express": {
         "version": "4.19.2",
-        "resolved": "https://example.com/demo/packages/demo-server-4.19.2.tgz",
-        "integrity": "sha512-synth-integrity-demo-server-hash-only=="
+        "resolved": "https://registry.npmjs.org/express/-/express-4.19.2.tgz",
+        "integrity": "sha512-synth-integrity-express-demo-hash==",
+        "dependencies": {
+          "accepts": "~1.3.8",
+          "cookie": "0.6.0",
+          "qs": "6.11.0"
+        }
       },
-      "node_modules/demo-lifecycle-plugin": {
-        "version": "1.0.4",
-        "resolved": "https://example.com/demo/packages/demo-lifecycle-plugin-1.0.4.tgz",
-        "integrity": "sha512-synth-integrity-demo-lifecycle-plugin-hash=="
+      "node_modules/axios": {
+        "version": "1.6.8",
+        "resolved": "https://registry.npmjs.org/axios/-/axios-1.6.8.tgz",
+        "integrity": "sha512-synth-integrity-axios-demo-hash==",
+        "dependencies": {
+          "follow-redirects": "^1.15.4"
+        }
       },
-      "node_modules/demo-transport": {
+      "node_modules/jsonwebtoken": {
+        "version": "9.0.0",
+        "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-9.0.0.tgz",
+        "integrity": "sha512-synth-integrity-jwt-demo-hash=="
+      },
+      "node_modules/accepts": {
+        "version": "1.3.8",
+        "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
+        "integrity": "sha512-synth-integrity-accepts-hash=="
+      },
+      "node_modules/cookie": {
+        "version": "0.6.0",
+        "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.6.0.tgz",
+        "integrity": "sha512-synth-integrity-cookie-hash=="
+      },
+      "node_modules/qs": {
+        "version": "6.11.0",
+        "resolved": "https://registry.npmjs.org/qs/-/qs-6.11.0.tgz",
+        "integrity": "sha512-synth-integrity-qs-hash=="
+      },
+      "node_modules/follow-redirects": {
         "version": "1.15.4",
-        "resolved": "https://example.com/demo/packages/demo-transport-1.15.4.tgz",
-        "integrity": "sha512-synth-integrity-demo-transport-hash=="
+        "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.4.tgz",
+        "integrity": "sha512-synth-integrity-follow-redirects-hash=="
+      },
+      "node_modules/typescript": {
+        "version": "5.4.5",
+        "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.4.5.tgz",
+        "integrity": "sha512-synth-integrity-typescript-hash=="
+      },
+      "node_modules/eslint": {
+        "version": "8.57.0",
+        "resolved": "https://registry.npmjs.org/eslint/-/eslint-8.57.0.tgz",
+        "integrity": "sha512-synth-integrity-eslint-hash=="
+      }
+    }
+  },
+  null,
+  2
+);
+
+/**
+ * Built-in synthetic sample package-lock.json (npm v2) for legacy node microservice.
+ */
+export const SAMPLE_LEGACY_PACKAGE_LOCK = JSON.stringify(
+  {
+    name: "legacy-auth-service",
+    version: "1.4.2",
+    lockfileVersion: 2,
+    requires: true,
+    packages: {
+      "": {
+        name: "legacy-auth-service",
+        version: "1.4.2",
+        dependencies: {
+          "jsonwebtoken": "8.5.1",
+          "lodash": "4.17.19",
+          "minimist": "1.2.5",
+          "ws": "7.4.5"
+        }
+      },
+      "node_modules/jsonwebtoken": {
+        "version": "8.5.1",
+        "resolved": "https://registry.npmjs.org/jsonwebtoken/-/jsonwebtoken-8.5.1.tgz"
+      },
+      "node_modules/lodash": {
+        "version": "4.17.19",
+        "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.19.tgz"
+      },
+      "node_modules/minimist": {
+        "version": "1.2.5",
+        "resolved": "https://registry.npmjs.org/minimist/-/minimist-1.2.5.tgz"
+      },
+      "node_modules/ws": {
+        "version": "7.4.5",
+        "resolved": "https://registry.npmjs.org/ws/-/ws-7.4.5.tgz"
       }
     }
   },

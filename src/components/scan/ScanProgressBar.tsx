@@ -40,43 +40,43 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-cyan-500/40 bg-slate-900/95 p-6 shadow-2xl relative overflow-hidden transition-all animate-in fade-in">
-      {/* Top glowing ambient line */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-emerald-500" />
+    <div className="rounded-2xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-6 shadow-sm relative overflow-hidden transition-all animate-in fade-in">
+      {/* Top ambient line */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#EFEFF0] via-[#BDBDC1] to-[#7D7E84]" />
 
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3C3C42]/40 text-[#EFEFF0] border border-[#3C3C42]/60">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-semibold text-[#EFEFF0]">
                 Simulated Supply Chain Threat Scan in Progress
               </h3>
-              <span className="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-cyan-500/30">
+              <span className="rounded bg-[#3C3C42]/30 px-2 py-0.5 text-[10px] font-mono text-[#BDBDC1] border border-[#3C3C42]/50">
                 100% Offline
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{progressState.currentMessage}</p>
+            <p className="text-xs text-[#BDBDC1] mt-0.5">{progressState.currentMessage}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-center">
-          <span className="font-mono text-xl font-bold text-cyan-400">
+          <span className="font-mono text-xl font-bold text-[#EFEFF0]">
             {progressState.progressPercent}%
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-[#7D7E84]">
             ({(progressState.elapsedMs / 1000).toFixed(1)}s)
           </span>
         </div>
       </div>
 
       {/* Progress Bar Track */}
-      <div className="mt-2 h-2.5 w-full rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-slate-700/50">
+      <div className="mt-2 h-2.5 w-full rounded-full bg-[#010101]/80 overflow-hidden p-0.5 border border-[#3C3C42]/50">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-300 transition-all duration-300 ease-out shadow-lg shadow-cyan-500/50"
+          className="h-full rounded-full bg-[#EFEFF0] transition-all duration-300 ease-out"
           style={{ width: `${progressState.progressPercent}%` }}
         />
       </div>
@@ -92,15 +92,15 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
               key={step.key}
               className={`flex items-center gap-2 rounded-lg border p-2 text-xs transition-all ${
                 status === 'completed'
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
                   : status === 'active'
-                  ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-500/40'
-                  : 'border-slate-800/60 bg-slate-950/40 text-slate-500'
+                  ? 'border-[#3C3C42] bg-[#3C3C42]/40 text-[#EFEFF0]'
+                  : 'border-[#3C3C42]/40 bg-[#010101]/40 text-[#7D7E84]'
               }`}
             >
               <Icon
                 className={`h-3.5 w-3.5 flex-shrink-0 ${
-                  status === 'active' ? 'animate-pulse text-cyan-400' : ''
+                  status === 'active' ? 'animate-pulse text-[#EFEFF0]' : ''
                 }`}
               />
               <span className="truncate font-medium">{step.label}</span>
@@ -110,9 +110,9 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
       </div>
 
       {/* Telemetry Console line */}
-      <div className="mt-4 flex items-center gap-2 rounded-lg bg-slate-950/70 px-3 py-1.5 text-[11px] font-mono text-slate-400 border border-slate-800">
-        <Terminal className="h-3.5 w-3.5 text-cyan-400 flex-shrink-0" />
-        <span className="text-cyan-400">depshield@local:</span>
+      <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#010101]/80 px-3 py-1.5 text-[11px] font-mono text-[#BDBDC1] border border-[#3C3C42]/50">
+        <Terminal className="h-3.5 w-3.5 text-[#BDBDC1] flex-shrink-0" />
+        <span className="text-[#EFEFF0]">depshield@local:</span>
         <span className="truncate">{progressState.stageLabel} &bull; {progressState.currentMessage}</span>
       </div>
     </div>

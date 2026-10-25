@@ -117,11 +117,11 @@ export const SAMPLE_DEMO_PACKAGE_LOCK = JSON.stringify(
         name: "depshield-demo-app",
         version: "2.1.0",
         dependencies: {
-          "express": "^4.19.2",
-          "axios": "^1.6.8",
-          "lodash": "^4.17.20",
-          "jsonwebtoken": "^9.0.0",
-          "tar": "^6.1.13"
+          "demo-server": "^4.19.2",
+          "demo-client": "^1.6.8",
+          "demo-core": "^4.17.20",
+          "demo-auth": "^9.0.0",
+          "demo-archive": "^6.1.13"
         },
         devDependencies: {
           "typescript": "^5.4.5",
@@ -129,35 +129,35 @@ export const SAMPLE_DEMO_PACKAGE_LOCK = JSON.stringify(
           "jest": "^29.7.0"
         }
       },
-      "node_modules/lodash": {
+      "node_modules/demo-core": {
         "version": "4.17.20",
-        "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.20.tgz",
-        "integrity": "sha512-synth-integrity-lodash-demo-hash-only=="
+        "resolved": "https://example.com/demo/packages/demo-core-4.17.20.tgz",
+        "integrity": "sha512-synth-integrity-demo-core-hash-only=="
       },
-      "node_modules/tar": {
+      "node_modules/demo-archive": {
         "version": "6.1.13",
-        "resolved": "https://registry.npmjs.org/tar/-/tar-6.1.13.tgz",
-        "integrity": "sha512-synth-integrity-tar-demo-hash-only=="
+        "resolved": "https://example.com/demo/packages/demo-archive-6.1.13.tgz",
+        "integrity": "sha512-synth-integrity-demo-archive-hash-only=="
       },
-      "node_modules/axios": {
+      "node_modules/demo-client": {
         "version": "1.6.8",
-        "resolved": "https://registry.npmjs.org/axios/-/axios-1.6.8.tgz",
-        "integrity": "sha512-synth-integrity-axios-demo-hash-only=="
+        "resolved": "https://example.com/demo/packages/demo-client-1.6.8.tgz",
+        "integrity": "sha512-synth-integrity-demo-client-hash-only=="
       },
-      "node_modules/express": {
+      "node_modules/demo-server": {
         "version": "4.19.2",
-        "resolved": "https://registry.npmjs.org/express/-/express-4.19.2.tgz",
-        "integrity": "sha512-synth-integrity-express-demo-hash-only=="
+        "resolved": "https://example.com/demo/packages/demo-server-4.19.2.tgz",
+        "integrity": "sha512-synth-integrity-demo-server-hash-only=="
       },
       "node_modules/demo-lifecycle-plugin": {
         "version": "1.0.4",
-        "resolved": "https://registry.npmjs.org/demo-lifecycle-plugin/-/demo-lifecycle-plugin-1.0.4.tgz",
+        "resolved": "https://example.com/demo/packages/demo-lifecycle-plugin-1.0.4.tgz",
         "integrity": "sha512-synth-integrity-demo-lifecycle-plugin-hash=="
       },
-      "node_modules/follow-redirects": {
+      "node_modules/demo-transport": {
         "version": "1.15.4",
-        "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.4.tgz",
-        "integrity": "sha512-synth-integrity-follow-redirects-hash=="
+        "resolved": "https://example.com/demo/packages/demo-transport-1.15.4.tgz",
+        "integrity": "sha512-synth-integrity-demo-transport-hash=="
       }
     }
   },

@@ -20,9 +20,10 @@ import { LockfileParsedSummary } from '@/types';
 interface UploadCardProps {
   onStartScan: (summary: LockfileParsedSummary) => void;
   isScanning: boolean;
+  onError?: (error: string) => void;
 }
 
-export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
+export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<LockfileParsedSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -33,8 +34,10 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
     const result = validateAndParsePackageLock(content, fileName, isSample);
 
     if (!result.valid || !result.summary) {
-      setErrorMessage(result.error || 'Failed to parse package-lock.json.');
+      const err = result.error || 'Failed to parse package-lock.json.';
+      setErrorMessage(err);
       setSelectedSummary(null);
+      if (onError) onError(err);
     } else {
       setSelectedSummary(result.summary);
       setErrorMessage(null);
@@ -110,24 +113,24 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
+    <div className="rounded-2xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-6 relative overflow-hidden">
+      {/* Ambient background accent */}
+      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#3C3C42]/30 blur-3xl" />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-[#3C3C42]/40">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <FileCode2 className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-base font-semibold text-[#EFEFF0] flex items-center gap-2">
+              <FileCode2 className="h-5 w-5 text-[#BDBDC1]" />
               Upload Dependency Manifest
             </h2>
-            <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-mono text-cyan-400 border border-cyan-500/20">
+            <span className="rounded-full bg-[#3C3C42]/30 px-2.5 py-0.5 text-[10px] font-mono text-[#BDBDC1] border border-[#3C3C42]/60">
               npm v2 / v3
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Provide a <code className="text-cyan-300">package-lock.json</code> to investigate public threat signals and produce evidence-backed, version-specific risk alerts.
+          <p className="text-xs text-[#BDBDC1] mt-1">
+            Provide a <code className="text-[#EFEFF0] font-mono">package-lock.json</code> to investigate public threat signals and produce evidence-backed, version-specific risk alerts.
           </p>
         </div>
 
@@ -135,10 +138,10 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
         <button
           onClick={handleLoadSample}
           disabled={isScanning}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-slate-700 hover:text-white active:scale-95 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-[#3C3C42]/60 bg-[#3C3C42]/30 px-3.5 py-2 text-xs font-medium text-[#EFEFF0] transition-all hover:bg-[#3C3C42]/50 hover:border-[#7D7E84] active:scale-95 disabled:opacity-50"
           title="Load preconfigured synthetic demo lockfile with simulated signals"
         >
-          <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+          <Sparkles className="h-3.5 w-3.5 text-[#EFEFF0]" />
           <span>Load Synthetic Demo Lockfile (Replay)</span>
         </button>
       </div>
@@ -161,56 +164,57 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`group cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all ${
+            className={`group cursor-pointer rounded-xl border border-dashed p-8 text-center transition-all ${
               dragActive
-                ? 'border-cyan-400 bg-cyan-500/10'
-                : 'border-slate-800 hover:border-slate-700 hover:bg-slate-800/30'
+                ? 'border-[#EFEFF0] bg-[#3C3C42]/30'
+                : 'border-[#3C3C42]/70 hover:border-[#7D7E84] bg-[#3C3C42]/10 hover:bg-[#3C3C42]/20'
             }`}
           >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800/80 text-cyan-400 group-hover:scale-105 transition-transform border border-slate-700">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#3C3C42]/30 text-[#EFEFF0] group-hover:scale-105 transition-transform border border-[#3C3C42]/60">
               <UploadCloud className="h-6 w-6" />
             </div>
-            <p className="mt-4 text-xs font-medium text-slate-200">
-              Drag & drop your <span className="text-cyan-400 font-mono">package-lock.json</span> here, or{' '}
-              <span className="text-cyan-400 underline underline-offset-2">browse files</span>
+            <p className="mt-4 text-xs font-medium text-[#EFEFF0]">
+              Drag & drop your <span className="text-white font-mono">package-lock.json</span> here, or{' '}
+              <span className="text-[#BDBDC1] underline underline-offset-2 hover:text-white">browse files</span>
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Strictly validated for lockfile format v2 or v3. Zero external API calls during demonstration.
+            <p className="mt-1 text-[11px] text-[#7D7E84]">
+              Strictly validated for lockfile format v2 or v3. Up to 4 packages deep-checked per scan due to API budget limits.
+              {process.env.NEXT_PUBLIC_USE_MOCKS === '1' ? ' Zero external requests.' : ''}
             </p>
           </div>
         ) : (
           /* File Preview Card */
-          <div className="rounded-xl border border-cyan-500/30 bg-slate-950/60 p-4">
+          <div className="rounded-xl border border-[#3C3C42]/60 bg-[#010101]/60 p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3C3C42]/30 text-emerald-400 border border-[#3C3C42]/60">
+                  <CheckCircle2 className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white font-mono">
+                    <span className="text-sm font-semibold text-[#EFEFF0] font-mono">
                       {selectedSummary.fileName}
                     </span>
                     {selectedSummary.isSyntheticSample && (
-                      <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono text-amber-400 border border-amber-500/30">
+                      <span className="rounded bg-[#3C3C42]/40 px-2 py-0.5 text-[10px] font-mono text-[#BDBDC1] border border-[#3C3C42]/60">
                         Synthetic Demo Sample
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#BDBDC1]">
                     <span>
                       Project:{' '}
-                      <strong className="text-slate-200">
+                      <strong className="text-[#EFEFF0]">
                         {selectedSummary.projectName}@{selectedSummary.projectVersion}
                       </strong>
                     </span>
                     <span>
                       Format:{' '}
-                      <strong className="text-slate-200 font-mono">v{selectedSummary.lockfileVersion}</strong>
+                      <strong className="text-[#EFEFF0] font-mono">v{selectedSummary.lockfileVersion}</strong>
                     </span>
                     <span>
                       Packages:{' '}
-                      <strong className="text-cyan-300">
+                      <strong className="text-[#EFEFF0]">
                         {selectedSummary.totalPackagesDetected}
                       </strong>{' '}
                       ({selectedSummary.directDependenciesCount} direct, {selectedSummary.transitiveDependenciesCount} transitive)
@@ -224,7 +228,7 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
                 <button
                   onClick={handleClear}
                   disabled={isScanning}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3C3C42]/60 bg-[#3C3C42]/20 px-3 py-2 text-xs font-medium text-[#BDBDC1] hover:text-[#EFEFF0] hover:bg-[#3C3C42]/40 transition-colors disabled:opacity-50"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span>Change File</span>
@@ -232,7 +236,7 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
                 <button
                   onClick={() => onStartScan(selectedSummary)}
                   disabled={isScanning}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2 text-xs font-semibold text-slate-950 shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#EFEFF0] px-5 py-2 text-xs font-semibold text-[#010101] hover:bg-white transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Play className="h-3.5 w-3.5 fill-current" />
                   <span>{isScanning ? 'Scan Running...' : 'Execute DepShield Scan'}</span>
@@ -253,16 +257,18 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
         )}
 
         {/* Synthetic Demonstration Notice Banner */}
-        <div className="mt-4 flex items-center justify-between rounded-lg bg-slate-950/40 px-3.5 py-2 text-[11px] text-slate-400 border border-slate-800/80">
+        <div className="mt-4 flex items-center justify-between rounded-lg bg-[#010101]/40 px-3.5 py-2 text-[11px] text-[#BDBDC1] border border-[#3C3C42]/50">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-cyan-400" />
+            <ShieldCheck className="h-4 w-4 text-[#7D7E84]" />
             <span>
-              <strong>Safe Demonstration Mode:</strong> All scans execute 100% locally with synthetic intelligence corpus. Complements standard scanners (Dependabot/Snyk/OSV). Zero external network requests.
+              <strong className="text-[#EFEFF0]">Safe Demonstration Mode:</strong> Deep-checks bounded to 4 packages per scan due to API budget limits. Complements standard scanners (Dependabot/Snyk/OSV).{process.env.NEXT_PUBLIC_USE_MOCKS === '1' ? ' Zero external requests.' : ''}
             </span>
           </div>
-          <span className="hidden md:inline font-mono text-[10px] text-slate-500">
-            NEXT_PUBLIC_USE_MOCKS=1
-          </span>
+          {process.env.NEXT_PUBLIC_USE_MOCKS === '1' && (
+            <span className="hidden md:inline font-mono text-[10px] text-[#7D7E84]">
+              NEXT_PUBLIC_USE_MOCKS=1
+            </span>
+          )}
         </div>
       </div>
     </div>

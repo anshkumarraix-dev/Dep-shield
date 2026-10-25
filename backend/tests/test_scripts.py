@@ -377,3 +377,96 @@ def test_adversarial_invalid_canned_json_path_or_contents(tmp_path, capsys):
     assert code2 == 1
     assert "Error reading canned output JSON" in captured2.err
 
+
+# ---------------------------------------------------------------------------
+# 3. Tests for export_run.py
+# ---------------------------------------------------------------------------
+
+def test_export_run_missing_scan_exits_1(tmp_path, capsys):
+    """Attempting to export a non-existent scan ID prints error and returns exit code 1."""
+    from scripts import export_run
+
+    code = export_run.main(["non-existent-scan-id-12345", "--output-dir", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "not found" in captured.err.lower()
+
+
+def test_export_run_success_with_redaction(tmp_path, monkeypatch, capsys):
+    """Exporting an existing scan writes a structured fixture with secrets redacted."""
+    from datetime import datetime, timezone
+    from app import db
+    from app.models import Finding, Scan, Source
+    from scripts import export_run
+
+    scan_id = "test-export-scan-001"
+    now = datetime.now(timezone.utc)
+
+    # Use isolated test DB in tmp_path
+    orig_db = db.get_db_path()
+    test_db = str(tmp_path / "test_export.db")
+    db.set_db_path(test_db)
+
+    try:
+        # 1. Create a dummy scan in DB
+        scan = Scan(
+            id=scan_id,
+            status="done",
+            mode="replay",
+            replay_case="event-stream-2018",
+            as_of_date="2018-11-26",
+            created_at=now,
+            packages_total=2,
+            packages_done=2,
+        )
+        db.create_scan(scan)
+
+        # 2. Create a dummy finding with a source containing a dummy secret
+        fake_key = "AIzaSyD-TEST-DUMMY-SECRET-KEY-1234567"
+        monkeypatch.setenv("TINYFISH_API_KEY", fake_key)
+
+        finding = Finding(
+            id="find-dummy-01",
+            scan_id=scan_id,
+            package="event-stream",
+            version="3.3.6",
+            ecosystem="npm",
+            dep_path=["copay-desktop", "event-stream@3.3.6"],
+            direct=True,
+            status="HIGH",
+            severity="high",
+            confidence=0.85,
+            summary=f"Discovered backdoor with token: {fake_key}",
+            reasoning="Deterministic rule check",
+            affected_versions="3.3.6",
+            version_match="confirmed",
+            in_osv=False,
+            osv_ids=[],
+            independent_sources=1,
+            sources=[Source(url="https://github.com/event-stream/issues/1", title="Issue", domain="github.com", source_type="github_issue")],
+            signals=[],
+        )
+        db.save_finding(finding)
+
+        # 3. Export
+        code = export_run.main([scan_id, "--output-dir", str(tmp_path)])
+        assert code == 0
+
+        out_file = tmp_path / f"{scan_id}.json"
+        assert out_file.is_file()
+
+        with open(out_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert data["recorded_from_live_run"] is True
+        assert "recorded_at" in data
+        assert data["scan_id"] == scan_id
+        assert data["scan"]["id"] == scan_id
+        assert len(data["findings"]) == 1
+        # Secret must be redacted
+        assert fake_key not in json.dumps(data)
+        assert "[REDACTED]" in data["findings"][0]["summary"]
+    finally:
+        db.set_db_path(orig_db)
+
+

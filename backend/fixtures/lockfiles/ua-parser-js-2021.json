@@ -1,0 +1,19 @@
+{
+  "name": "analytics-app",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "analytics-app",
+      "version": "1.0.0",
+      "dependencies": {
+        "ua-parser-js": "0.7.29"
+      }
+    },
+    "node_modules/ua-parser-js": {
+      "name": "ua-parser-js",
+      "version": "0.7.29"
+    }
+  }
+}

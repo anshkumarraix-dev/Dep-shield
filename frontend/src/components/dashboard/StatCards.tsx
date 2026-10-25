@@ -68,24 +68,19 @@ export function StatCards({ metrics }: StatCardsProps) {
         return (
           <div
             key={card.title}
-            className={`relative overflow-hidden rounded-xl border ${card.borderColor} bg-slate-900/85 p-4 shadow-sm transition-all hover:border-slate-700`}
+            className="relative overflow-hidden rounded-xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-4 transition-all hover:border-[#3C3C42]/90 hover:bg-[#3C3C42]/30"
           >
-            {/* Ambient subtle glow */}
-            <div
-              className={`pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-gradient-to-br ${card.bgGlow} blur-2xl`}
-            />
-
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400">{card.title}</span>
+              <span className="text-xs font-medium text-[#BDBDC1]">{card.title}</span>
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-950/70 ${card.iconColor}`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#3C3C42]/60 bg-[#3C3C42]/20 text-[#EFEFF0]"
               >
                 <Icon className="h-4 w-4" />
               </div>
             </div>
 
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold tracking-tight text-white">{card.value}</span>
+              <span className="text-2xl font-bold tracking-tight text-[#EFEFF0] font-mono">{card.value}</span>
               {card.isPulsing && (
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>

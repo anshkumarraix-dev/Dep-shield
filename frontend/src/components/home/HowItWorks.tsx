@@ -43,14 +43,14 @@ export function HowItWorks() {
     <section id="how-it-works" className="space-y-6 pt-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
-          <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-cyan-400">
+          <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#7D7E84]">
             Defense Workflow
           </span>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#EFEFF0] mt-1">
             How DepShield Works
           </h2>
         </div>
-        <p className="text-xs sm:text-sm text-slate-400 max-w-lg leading-relaxed">
+        <p className="text-xs sm:text-sm text-[#BDBDC1] max-w-lg leading-relaxed">
           Four automated analysis phases designed to reveal unpatched threats before they become published CVEs.
         </p>
       </div>
@@ -61,27 +61,27 @@ export function HowItWorks() {
           return (
             <div
               key={item.step}
-              className="group relative flex flex-col justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-5 transition-all hover:border-cyan-500/40 hover:bg-slate-900/90"
+              className="group relative flex flex-col justify-between rounded-xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-5 transition-all hover:border-[#3C3C42]/80 hover:bg-[#3C3C42]/30"
             >
               {/* Step indicator pill */}
               <div className="flex items-center justify-between mb-4">
-                <span className="font-mono text-xs font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+                <span className="font-mono text-xs font-bold text-[#EFEFF0] bg-[#3C3C42]/40 border border-[#3C3C42]/60 px-2 py-0.5 rounded">
                   Step {item.step}
                 </span>
-                <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 group-hover:text-cyan-300 group-hover:border-cyan-500/30 transition-colors">
+                <div className="p-2 rounded-lg bg-[#010101]/80 border border-[#3C3C42]/60 text-[#BDBDC1] group-hover:text-[#EFEFF0] transition-colors">
                   <Icon className="h-4 w-4" />
                 </div>
               </div>
 
               {/* Step Content */}
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-white tracking-tight leading-snug">
+                <h3 className="text-sm font-semibold text-[#EFEFF0] tracking-tight leading-snug">
                   {item.title}
                 </h3>
-                <p className="text-[11px] font-mono text-cyan-400/90">
+                <p className="text-[11px] font-mono text-[#7D7E84]">
                   {item.subtitle}
                 </p>
-                <p className="text-xs text-slate-400 leading-relaxed pt-1">
+                <p className="text-xs text-[#BDBDC1] leading-relaxed pt-1">
                   {item.description}
                 </p>
               </div>

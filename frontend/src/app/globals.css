@@ -1,36 +1,63 @@
 @import "tailwindcss";
 
+@theme {
+  --color-carbon: #010101;
+  --color-charcoal: #3c3c42;
+  --color-charcoal-50: rgba(60, 60, 66, 0.5);
+  --color-charcoal-35: rgba(60, 60, 66, 0.35);
+  --color-charcoal-20: rgba(60, 60, 66, 0.2);
+  --color-offwhite: #efeff0;
+  --color-lightgray: #bdbdc1;
+  --color-midgray: #7d7e84;
+  --color-darkgray: #5f5f62;
+
+  --color-slate-950: #010101;
+  --color-slate-900: #121214;
+  --color-slate-800: #3c3c42;
+  --color-slate-700: #5f5f62;
+  --color-slate-600: #7d7e84;
+  --color-slate-500: #7d7e84;
+  --color-slate-400: #bdbdc1;
+  --color-slate-300: #bdbdc1;
+  --color-slate-200: #efeff0;
+  --color-slate-100: #efeff0;
+  --color-slate-50: #ffffff;
+}
+
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
-  --surface-primary: #0f172a;
-  --surface-secondary: #1e293b;
-  --surface-border: #334155;
-  --accent-cyan: #06b6d4;
-  --accent-blue: #3b82f6;
+  --background: #010101;
+  --foreground: #efeff0;
+  --surface-primary: #121214;
+  --surface-secondary: #3c3c42;
+  --surface-card: rgba(60, 60, 66, 0.25);
+  --surface-border: rgba(60, 60, 66, 0.5);
+  --text-primary: #efeff0;
+  --text-secondary: #bdbdc1;
+  --text-muted: #7d7e84;
+  --text-tertiary: #5f5f62;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #010101;
+  color: #efeff0;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #010101;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
+  background: #3c3c42;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #5f5f62;
 }
 
 /* Accessibility: Respect prefers-reduced-motion */
@@ -44,3 +71,60 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* 3D Circular Orbit & Signal Flow Keyframes */
+@keyframes orbit-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-flow {
+  0%, 100% {
+    opacity: 0.35;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(3px);
+  }
+}
+
+.animate-orbit-1 {
+  animation: orbit-cw 8s linear infinite;
+}
+
+.animate-orbit-2 {
+  animation: orbit-cw 10s linear infinite;
+}
+
+.animate-orbit-3 {
+  animation: orbit-cw 9s linear infinite;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-orbit-1,
+  .animate-orbit-2,
+  .animate-orbit-3,
+  .animate-flow-arrows,
+  .animate-marquee {
+    animation: none !important;
+  }
+}
+

@@ -1,10 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { AnnouncementBar } from '@/components/home/AnnouncementBar';
 import { Header } from '@/components/layout/Header';
-import { ProductPreviewCard } from '@/components/home/ProductPreviewCard';
+import { ThreeDPillars } from '@/components/home/ThreeDPillars';
+import { DataSourcesStrip } from '@/components/home/DataSourcesStrip';
+import { StatsWithConsole } from '@/components/home/StatsWithConsole';
+import { ProblemCards } from '@/components/home/ProblemCards';
+import { VerificationTabs } from '@/components/home/VerificationTabs';
+import { IntegrationsGrid } from '@/components/home/IntegrationsGrid';
 import { HowItWorks } from '@/components/home/HowItWorks';
 import { TrustStrip } from '@/components/home/TrustStrip';
+import { AccordionFaq } from '@/components/home/AccordionFaq';
+import { ClosingCtaBand } from '@/components/home/ClosingCtaBand';
+import { Footer } from '@/components/layout/Footer';
+import { HelpLauncher } from '@/components/home/HelpLauncher';
+import { ToastNotification, ToastMessage } from '@/components/common/ToastNotification';
+
 import { StatCards } from '@/components/dashboard/StatCards';
 import { FindingsTable } from '@/components/dashboard/FindingsTable';
 import { EvidenceDrawer } from '@/components/dashboard/EvidenceDrawer';
@@ -20,7 +32,6 @@ import {
   ScanProgressState,
 } from '@/types';
 import { envConfig } from '@/config/env';
-import { Shield, Sparkles, Upload } from 'lucide-react';
 
 export default function DepShieldHomePage() {
   const [metrics, setMetrics] = useState<ScanSummaryMetrics | null>(null);
@@ -31,10 +42,20 @@ export default function DepShieldHomePage() {
   const [progressState, setProgressState] = useState<ScanProgressState | null>(null);
   const [lastScannedFile, setLastScannedFile] = useState<string>('sample-package-lock.json');
   const [lastSyncedTime, setLastSyncedTime] = useState<string>('');
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const uploadSectionRef = useRef<HTMLDivElement>(null);
   const findingsSectionRef = useRef<HTMLDivElement>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const addToast = (type: 'success' | 'error' | 'info', title: string, message: string) => {
+    const id = Date.now().toString() + Math.random().toString(36).substring(2, 5);
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   // Cleanup pending timers on component unmount
   useEffect(() => {
@@ -88,6 +109,12 @@ export default function DepShieldHomePage() {
       setActivity(result.activity);
       setLastSyncedTime(new Date().toLocaleTimeString());
 
+      addToast(
+        'success',
+        'Scan Completed',
+        `${lockfileSummary.fileName}: ${result.findings.length} findings evaluated (Synthetic demo data)`
+      );
+
       // Auto scroll to findings table after scan
       const scrollTimer = setTimeout(() => {
         findingsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -95,6 +122,7 @@ export default function DepShieldHomePage() {
       timersRef.current.push(scrollTimer);
     } catch (err) {
       console.error('Scan simulation error:', err);
+      addToast('error', 'Scan Error', 'An unexpected error occurred during scan simulation.');
     } finally {
       setIsScanning(false);
       const dismissTimer = setTimeout(() => {
@@ -125,172 +153,177 @@ export default function DepShieldHomePage() {
     uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handleUploadError = (errorMessage: string) => {
+    addToast('error', 'Invalid Lockfile Format', errorMessage);
+  };
+
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* 1. Sticky top nav: DepShield wordmark, links (How it works, Demo), one primary button */}
+    <div className="min-h-screen bg-[#010101] text-[#EFEFF0] flex flex-col selection:bg-[#3C3C42] selection:text-[#EFEFF0]">
+      {/* Top Announcement Banner */}
+      <AnnouncementBar />
+
+      {/* Sticky Top Nav with Mega-Menus & Scroll-Progress */}
       <Header
         onUploadClick={scrollToUpload}
         onDemoClick={handleTriggerQuickScan}
         isScanning={isScanning}
       />
 
-      {/* Main Home Page Body */}
-      <main className="flex-1 px-4 py-8 sm:px-6 md:px-8 max-w-7xl w-full mx-auto space-y-12">
-        {/* 2. Hero: headline "Early warnings for risky npm dependencies", one supporting line, buttons & mode badge */}
-        <section className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-b from-slate-900/90 via-slate-900/40 to-slate-950 p-6 sm:p-10 md:p-12 shadow-2xl">
-          {/* Subtle ambient lighting */}
-          <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -left-16 -bottom-16 h-72 w-72 rounded-full bg-blue-600/10 blur-3xl" />
+      {/* Main Home Page Experience */}
+      <main className="flex-1 space-y-20 pb-16">
+        {/* HERO SECTION */}
+        <section className="relative overflow-hidden pt-12 pb-6 px-4 sm:px-6 md:px-8 max-w-7xl mx-auto text-center">
+          {/* Subtle background ambient radial lights */}
+          <div className="pointer-events-none absolute left-1/2 -top-32 -translate-x-1/2 h-96 w-[48rem] rounded-full bg-gradient-to-b from-[#3C3C42]/20 via-[#3C3C42]/5 to-transparent blur-3xl" />
 
-          <div className="relative z-10 max-w-3xl space-y-6">
-            {/* Mock / Backend mode badge */}
-            <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/90 px-3.5 py-1 text-xs font-mono border border-slate-800 text-slate-300">
+          <div className="relative z-10 max-w-4xl mx-auto space-y-6">
+            {/* Environment Mode Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#3C3C42]/20 px-3.5 py-1 text-xs font-mono border border-[#3C3C42]/60 text-[#BDBDC1] backdrop-blur-md">
               <span
                 className={`h-2 w-2 rounded-full ${
                   envConfig.useMocks ? 'bg-cyan-400 animate-pulse' : 'bg-emerald-400'
                 }`}
               />
-              <span className="text-slate-400">Environment Mode:</span>
-              <span className="font-semibold text-cyan-300">
+              <span className="text-[#7D7E84]">Environment Mode:</span>
+              <span className="font-semibold text-[#EFEFF0]">
                 {envConfig.useMocks ? 'Mock Demo (Offline Mode)' : 'Live FastAPI Backend'}
               </span>
             </div>
 
-            {/* Exact required headline */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-[1.15]">
-              Early warnings for risky npm dependencies
+            {/* Hero Brand Title */}
+            <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tight text-[#EFEFF0] leading-[1.02]">
+              Dep<span className="bg-gradient-to-r from-[#EFEFF0] via-white to-[#BDBDC1] bg-clip-text text-transparent">Shield</span>
             </h1>
 
-            {/* One supporting line */}
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-              Investigate emerging threat signals, verify unpatched repository reports, and inspect evidence-backed findings before official CVE publication.
+            {/* Clean, Minimalist Tagline */}
+            <p className="text-lg sm:text-xl md:text-2xl text-[#BDBDC1] max-w-2xl mx-auto font-medium tracking-tight">
+              Automated early-warning intelligence for npm dependencies.
             </p>
+          </div>
 
-            {/* Hero CTA buttons: "Upload package-lock.json" (primary) and "Try a demo scan" (secondary) */}
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                onClick={scrollToUpload}
-                className="flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 text-xs sm:text-sm font-bold text-slate-950 shadow-lg shadow-cyan-500/25 transition-all hover:bg-cyan-400 hover:shadow-cyan-500/35 active:scale-95"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Upload package-lock.json</span>
-              </button>
-
-              <button
-                onClick={handleTriggerQuickScan}
-                disabled={isScanning}
-                className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/90 px-5 py-3 text-xs sm:text-sm font-semibold text-slate-200 transition-all hover:bg-slate-800 hover:text-white hover:border-slate-600 active:scale-95 disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4 text-cyan-400" />
-                <span>{isScanning ? 'Running Scan...' : 'Try a demo scan'}</span>
-              </button>
-            </div>
+          {/* 3D Circular Pillars with Continuous Orbit Animation */}
+          <div className="mt-8">
+            <ThreeDPillars
+              onUploadClick={scrollToUpload}
+              onDemoClick={handleTriggerQuickScan}
+              isScanning={isScanning}
+              onSelectPillar={() => scrollToUpload()}
+            />
           </div>
         </section>
 
-        {/* 3. Product preview directly under the hero: real, interactive card using mock findings labelled "Synthetic demo data" */}
-        <section aria-label="Interactive Product Preview">
-          <ProductPreviewCard
+        {/* Marquee Strip (CSS-only, pause on hover, listing ONLY OSV, npm registry, public web signals) */}
+        <DataSourcesStrip />
+
+        {/* Container for Main Content Sections */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 space-y-24">
+          {/* Sticky-Scroll Section: Stats on left, sticky console on right */}
+          <StatsWithConsole
             findings={findings}
             onSelectFinding={(f) => setSelectedFinding(f)}
           />
-        </section>
 
-        {/* 4. "How it works" in 4 steps: Upload, Check known databases, Look for early warnings, Scored findings */}
-        <HowItWorks />
+          {/* Three Problems: Code-window cards that rise on scroll with IntersectionObserver */}
+          <ProblemCards />
 
-        {/* 5. Trust strip with honest claims only */}
-        <TrustStrip />
+          {/* Verification Tabs: Sliding indicator, keyboard arrows, synthetic demo scenarios */}
+          <VerificationTabs />
 
-        {/* Comprehensive Scan Flow: Upload, Progress, Metrics, Findings, Activity */}
-        <div className="space-y-6 pt-4 border-t border-slate-800/80">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                Live Scanner &amp; Ingestion Console
-              </h2>
-              <p className="text-xs text-slate-400">
-                Upload your lockfile or replay a demo scan to inspect findings in depth
-              </p>
-            </div>
+          {/* Integration & Source Icon Grid: Staggered fade in */}
+          <IntegrationsGrid />
 
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span>Active Target:</span>
-              <span className="text-cyan-300 font-semibold">{lastScannedFile}</span>
-              {lastSyncedTime && <span>&bull; {lastSyncedTime}</span>}
-            </div>
-          </div>
+          {/* How DepShield Works: 4-Step Pipeline */}
+          <HowItWorks />
 
-          {/* Upload Card Section */}
-          <div ref={uploadSectionRef} id="upload">
-            <UploadCard onStartScan={handleStartScan} isScanning={isScanning} />
-          </div>
+          {/* Trust Strip: Honest Claims */}
+          <TrustStrip />
 
-          {/* Active Scan Progress State */}
-          {progressState && (
-            <div className="transition-all animate-in slide-in-from-top-4">
-              <ScanProgressBar progressState={progressState} />
-            </div>
-          )}
-
-          {/* Key Metrics Overview */}
-          {metrics && (
-            <section aria-label="Key Supply Chain Metrics" id="dashboard">
-              <StatCards metrics={metrics} />
-            </section>
-          )}
-
-          {/* Findings Table Section */}
-          <section ref={findingsSectionRef} id="findings" className="space-y-4">
-            <FindingsTable
-              findings={findings}
-              onSelectFinding={(f) => setSelectedFinding(f)}
-              selectedFindingId={selectedFinding?.id}
-            />
-          </section>
-
-          {/* Audit & Activity Stream Section */}
-          <section id="activity" className="space-y-4">
-            <ActivityFeedPreview activity={activity} />
-          </section>
-        </div>
-
-        {/* 6. Footer with exact limits note: "Prototype. Deep-checks a limited number of packages per scan." */}
-        <footer className="pt-8 pb-10 border-t border-slate-800/80 space-y-4 text-xs text-slate-400">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-slate-950 font-bold shadow-sm">
-                <Shield className="h-4 w-4 fill-current" />
+          {/* Live Scanner & Ingestion Flow */}
+          <section id="upload" className="space-y-6 pt-6 border-t border-[#3C3C42]/50">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-[#EFEFF0] tracking-tight">
+                  Interactive Lockfile Scanner &amp; Ingestion Console
+                </h2>
+                <p className="text-xs text-[#BDBDC1] mt-1">
+                  Upload your package-lock.json (v2 or v3) or replay synthetic demonstration telemetry
+                </p>
               </div>
-              <span className="font-bold text-slate-200 text-sm">DepShield</span>
-              <span className="text-slate-600">&bull;</span>
-              <span className="text-slate-400">Early-Warning Intelligence for npm Dependencies</span>
+
+              <div className="flex items-center gap-2 text-xs font-mono text-[#BDBDC1]">
+                <span className="text-[#7D7E84]">Active Target:</span>
+                <span className="text-[#EFEFF0] font-semibold">{lastScannedFile}</span>
+                {lastSyncedTime && <span className="text-[#5F5F62]">&bull; {lastSyncedTime}</span>}
+              </div>
             </div>
 
-            <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400">
-              <span>Environment: <strong className="text-cyan-400">{envConfig.nodeEnv}</strong></span>
-              <span>&bull;</span>
-              <span>Mode: <strong className="text-slate-300">{envConfig.useMocks ? 'Mock Demo' : 'Live Backend'}</strong></span>
+            {/* Upload Card with error toast trigger */}
+            <div ref={uploadSectionRef}>
+              <UploadCard
+                onStartScan={handleStartScan}
+                isScanning={isScanning}
+                onError={handleUploadError}
+              />
             </div>
-          </div>
 
-          {/* Exact limits note required by prompt */}
-          <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 text-center sm:text-left text-xs text-slate-400 flex items-center justify-between flex-wrap gap-2">
-            <span>
-              <strong className="text-slate-300">Notice:</strong> Prototype. Deep-checks a limited number of packages per scan.
-            </span>
-            <span className="font-mono text-[11px] text-slate-500">
-              NEXT_PUBLIC_USE_MOCKS=1
-            </span>
-          </div>
-        </footer>
+            {/* Scan Progress Bar */}
+            {progressState && (
+              <div className="transition-all animate-in slide-in-from-top-4">
+                <ScanProgressBar progressState={progressState} />
+              </div>
+            )}
+
+            {/* Key Metrics Overview */}
+            {metrics && (
+              <section aria-label="Key Supply Chain Metrics" id="dashboard">
+                <StatCards metrics={metrics} />
+              </section>
+            )}
+
+            {/* Findings Table with Tri-State OSV Badges */}
+            <section ref={findingsSectionRef} id="findings" className="space-y-4">
+              <FindingsTable
+                findings={findings}
+                onSelectFinding={(f) => setSelectedFinding(f)}
+                selectedFindingId={selectedFinding?.id}
+              />
+            </section>
+
+            {/* Activity Stream */}
+            <section id="activity" className="space-y-4">
+              <ActivityFeedPreview activity={activity} />
+            </section>
+          </section>
+
+          {/* Section: FAQ Accordion */}
+          <AccordionFaq />
+
+          {/* Closing CTA Band */}
+          <ClosingCtaBand
+            onUploadClick={scrollToUpload}
+            onDemoClick={handleTriggerQuickScan}
+            isScanning={isScanning}
+          />
+        </div>
       </main>
+
+      {/* 5-Column Snyk-Style Footer with Demo Scan Card and Honest Limits */}
+      <Footer
+        onUploadClick={scrollToUpload}
+        onDemoClick={handleTriggerQuickScan}
+      />
 
       {/* Slide-over Evidence Drawer */}
       <EvidenceDrawer
         finding={selectedFinding}
         onClose={() => setSelectedFinding(null)}
       />
+
+      {/* Floating Help & FAQ Drawer Launcher (NOT an AI chat) */}
+      <HelpLauncher />
+
+      {/* Toast Notification Region */}
+      <ToastNotification toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 }

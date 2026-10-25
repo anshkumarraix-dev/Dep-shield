@@ -12,15 +12,18 @@ import time
 import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 import httpx
 
 # Directly import shared models from app.models
-try:
+if TYPE_CHECKING:
     from app.models import ActivityEvent, Emit, NpmMeta, OsvResult
-except ImportError:
-    from backend.app.models import ActivityEvent, Emit, NpmMeta, OsvResult
+else:
+    try:
+        from app.models import ActivityEvent, Emit, NpmMeta, OsvResult
+    except ImportError:
+        from backend.app.models import ActivityEvent, Emit, NpmMeta, OsvResult
 
 # ---------------------------------------------------------------------------
 # Internal / Fallback dataclasses
@@ -100,8 +103,8 @@ def _create_activity_event(
     status: str,
     latency_ms: float,
     details: Optional[Dict[str, Any]] = None,
-    activity_log: Optional[List[ActivityEvent]] = None,
-) -> ActivityEvent:
+    activity_log: Optional[List[Any]] = None,
+) -> _FallbackActivityEvent:
     """
     Constructs an ActivityEvent in a single location for easy adaptation to shared models.
     Assumed fields:
@@ -204,6 +207,18 @@ class TtlCache:
         expiry = now + (ttl if ttl is not None else self.default_ttl)
         self._store[key] = (expiry, val)
 
+    def __setitem__(self, key: str, val: Any) -> None:
+        self.set(key, val)
+
+    def __getitem__(self, key: str) -> Any:
+        val = self.get(key)
+        if val is None:
+            raise KeyError(key)
+        return val
+
+    def __contains__(self, key: str) -> bool:
+        return self.get(key) is not None
+
 
 GLOBAL_BASELINE_CACHE = TtlCache()
 DEFAULT_TIMEOUT_SEC = 15.0
@@ -233,7 +248,7 @@ async def _osv_lookup(
         val_err = validate_name_and_version(name, version)
         if val_err:
             _create_activity_event("osv", target, "invalid_input", 0.0, {"error": val_err}, activity_log)
-            return _FallbackOsvResult(name=str(name), version=str(version), in_osv=None, error=val_err)
+            return _FallbackOsvResult(name=name, version=version, in_osv=None, error=val_err)
 
         cache_obj = cache if cache is not None else GLOBAL_BASELINE_CACHE
         cache_key = f"osv:{ecosystem}:{name}@{version}"
@@ -327,7 +342,7 @@ async def _osv_lookup(
                     error=None,
                 )
                 _create_activity_event("osv", target, "clean", latency, {"in_osv": False}, activity_log)
-                if hasattr(cache_obj, "set"):
+                if isinstance(cache_obj, TtlCache):
                     cache_obj.set(cache_key, result)
                 else:
                     cache_obj[cache_key] = result
@@ -357,7 +372,7 @@ async def _osv_lookup(
                 error=None,
             )
             _create_activity_event("osv", target, "vulnerable", latency, {"in_osv": True, "count": len(deduped_ids)}, activity_log)
-            if hasattr(cache_obj, "set"):
+            if isinstance(cache_obj, TtlCache):
                 cache_obj.set(cache_key, result)
             else:
                 cache_obj[cache_key] = result
@@ -374,7 +389,7 @@ async def _osv_lookup(
                 error=None,
             )
             _create_activity_event("osv", target, "clean", latency, {"in_osv": False}, activity_log)
-            if hasattr(cache_obj, "set"):
+            if isinstance(cache_obj, TtlCache):
                 cache_obj.set(cache_key, result)
             else:
                 cache_obj[cache_key] = result
@@ -387,7 +402,7 @@ async def _osv_lookup(
             _create_activity_event("osv", target, "unhandled_exception", latency, {"error": err_msg}, activity_log)
         except Exception:
             pass
-        return _FallbackOsvResult(name=str(name), version=str(version), in_osv=None, error=err_msg)
+        return _FallbackOsvResult(name=name, version=version, in_osv=None, error=err_msg)
 
 
 # 2. npm Metadata (Internal)
@@ -411,7 +426,7 @@ async def _npm_metadata(
         val_err = validate_name_and_version(name, version)
         if val_err:
             _create_activity_event("npm", target, "invalid_input", 0.0, {"error": val_err}, activity_log)
-            return _FallbackNpmInfo(name=str(name), version=str(version), found=None, error=val_err)
+            return _FallbackNpmInfo(name=name, version=version, found=None, error=val_err)
 
         cache_obj = cache if cache is not None else GLOBAL_BASELINE_CACHE
         cache_key = f"npm:{name}@{version}"
@@ -466,7 +481,7 @@ async def _npm_metadata(
         if resp_ver.status_code == 404:
             result = _FallbackNpmInfo(name=name, version=version, found=False, error=None)
             _create_activity_event("npm", target, "not_found", latency, {"found": False}, activity_log)
-            if hasattr(cache_obj, "set"):
+            if isinstance(cache_obj, TtlCache):
                 cache_obj.set(cache_key, result)
             else:
                 cache_obj[cache_key] = result
@@ -565,7 +580,7 @@ async def _npm_metadata(
 
         # Do NOT cache when dist-tags lookup failed (latest is None)
         if latest is not None:
-            if hasattr(cache_obj, "set"):
+            if isinstance(cache_obj, TtlCache):
                 cache_obj.set(cache_key, result)
             else:
                 cache_obj[cache_key] = result
@@ -579,7 +594,7 @@ async def _npm_metadata(
             _create_activity_event("npm", target, "unhandled_exception", latency, {"error": err_msg}, activity_log)
         except Exception:
             pass
-        return _FallbackNpmInfo(name=str(name), version=str(version), found=None, error=err_msg)
+        return _FallbackNpmInfo(name=name, version=version, found=None, error=err_msg)
 
 
 # ===========================================================================
@@ -665,7 +680,7 @@ async def osv_lookup(
             return res
 
         else:
-            err_msg = str(raw.error or "OSV lookup failed")[:200]
+            err_msg = (raw.error or "OSV lookup failed")[:200]
             res = OsvResult(
                 queried=False,
                 vuln_ids=[],
@@ -792,7 +807,7 @@ async def npm_metadata(
                         target=target,
                         status="error",
                         latency_ms=elapsed_ms,
-                        detail=str(raw.error)[:200],
+                        detail=raw.error[:200],
                     )
                 )
             return res

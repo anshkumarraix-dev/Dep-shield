@@ -40,10 +40,15 @@ for _p in (str(_BACKEND_DIR), str(_REPO_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-try:
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
     from app.tinyfish_client import TinyFishClient
-except ImportError:
-    from backend.app.tinyfish_client import TinyFishClient
+else:
+    try:
+        from app.tinyfish_client import TinyFishClient
+    except ImportError:
+        from backend.app.tinyfish_client import TinyFishClient
 
 DEFAULT_QUERY = "npm package security advisory"
 DEFAULT_FIXTURES_DIR = _CURRENT_DIR / "fixtures"

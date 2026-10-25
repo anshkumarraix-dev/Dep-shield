@@ -8,11 +8,12 @@ import sys
 import types
 from unittest.mock import AsyncMock, MagicMock
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 import httpx
 import pytest
 
 # Try importing from app.baseline first, fallback to backend.app.baseline
-try:
+if TYPE_CHECKING:
     from app.baseline import (
         _osv_lookup as osv_lookup,
         _npm_metadata as npm_metadata,
@@ -26,20 +27,35 @@ try:
         _load_models,
         _FallbackNpmInfo,
     )
-except ImportError:
-    from backend.app.baseline import (
-        _osv_lookup as osv_lookup,
-        _npm_metadata as npm_metadata,
-        osv_lookup as contract_osv_lookup,
-        npm_metadata as contract_npm_metadata,
-        OsvResult,
-        NpmInfo,
-        ActivityEvent,
-        TtlCache,
-        validate_name_and_version,
-        _load_models,
-        _FallbackNpmInfo,
-    )
+else:
+    try:
+        from app.baseline import (
+            _osv_lookup as osv_lookup,
+            _npm_metadata as npm_metadata,
+            osv_lookup as contract_osv_lookup,
+            npm_metadata as contract_npm_metadata,
+            OsvResult,
+            NpmInfo,
+            ActivityEvent,
+            TtlCache,
+            validate_name_and_version,
+            _load_models,
+            _FallbackNpmInfo,
+        )
+    except ImportError:
+        from backend.app.baseline import (
+            _osv_lookup as osv_lookup,
+            _npm_metadata as npm_metadata,
+            osv_lookup as contract_osv_lookup,
+            npm_metadata as contract_npm_metadata,
+            OsvResult,
+            NpmInfo,
+            ActivityEvent,
+            TtlCache,
+            validate_name_and_version,
+            _load_models,
+            _FallbackNpmInfo,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -575,8 +591,8 @@ def test_partial_import_fallback(monkeypatch):
     class CustomSharedActivityEvent:
         event_type: str
 
-    mock_models.OsvResult = CustomSharedOsvResult
-    mock_models.ActivityEvent = CustomSharedActivityEvent
+    setattr(mock_models, "OsvResult", CustomSharedOsvResult)
+    setattr(mock_models, "ActivityEvent", CustomSharedActivityEvent)
     # NpmInfo is intentionally omitted
 
     monkeypatch.setitem(sys.modules, "app.models", mock_models)

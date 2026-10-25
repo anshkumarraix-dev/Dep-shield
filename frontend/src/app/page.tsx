@@ -122,7 +122,7 @@ export default function DepShieldDashboard() {
       setLastCompletedScan({
         completedAt: new Date().toLocaleTimeString(),
         durationMs: elapsed,
-        packagesCount: result.summary.totalPackagesScanned,
+        packagesCount: result.summary.totalDependenciesScanned,
         findingsCount: result.findings.length,
         fileName: lockfileSummary.fileName,
       });

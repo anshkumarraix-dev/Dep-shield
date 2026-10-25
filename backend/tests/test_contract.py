@@ -48,7 +48,9 @@ def block_network_sockets(monkeypatch):
         saved = socket.socket.connect
         socket.socket.connect = orig_connect
         try:
-            return orig_socketpair(*args, **kwargs)
+            if orig_socketpair is not None:
+                return orig_socketpair(*args, **kwargs)
+            raise OSError("socketpair not supported")
         finally:
             socket.socket.connect = saved
 

@@ -22,7 +22,7 @@ import sys
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 # Ensure backend directory is in sys.path
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -31,10 +31,13 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 # Shared model imports
-try:
+if TYPE_CHECKING:
     from app.models import Dependency, Finding, OsvResult, PageContent, Signal, Source
-except ImportError:
-    from backend.app.models import Dependency, Finding, OsvResult, PageContent, Signal, Source
+else:
+    try:
+        from app.models import Dependency, Finding, OsvResult, PageContent, Signal, Source
+    except ImportError:
+        from backend.app.models import Dependency, Finding, OsvResult, PageContent, Signal, Source
 
 
 def inspect_classifier_contract(classifier_mod: Any) -> tuple[bool, str]:
@@ -211,10 +214,13 @@ def main(argv: list[str] | None = None) -> int:
     osv = OsvResult(queried=True, vuln_ids=[])
 
     # 3. Dynamic inspection of modules
-    try:
+    if TYPE_CHECKING:
         from app import classifier, scoring
-    except ImportError:
-        from backend.app import classifier, scoring
+    else:
+        try:
+            from app import classifier, scoring
+        except ImportError:
+            from backend.app import classifier, scoring
 
     classifier_ok, classifier_msg = inspect_classifier_contract(classifier)
     scoring_ok, scoring_msg = inspect_scoring_contract(scoring)
@@ -231,11 +237,16 @@ def main(argv: list[str] | None = None) -> int:
     else:
         # If classifier matches contract, run it with Gemini patched
         orig_call = getattr(classifier, "_call_gemini", None)
+        orig_model = os.environ.get("GEMINI_MODEL")
+        orig_stubs = os.environ.get("USE_STUBS")
 
         async def mock_call_gemini(*args: Any, **kwargs: Any) -> list[Signal]:
             return signals
 
         setattr(classifier, "_call_gemini", mock_call_gemini)
+        if not orig_model:
+            os.environ["GEMINI_MODEL"] = "canned-gemini-model"
+        os.environ["USE_STUBS"] = "0"
         try:
             active_signals = asyncio.run(
                 classifier.classify(
@@ -248,6 +259,14 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             if orig_call:
                 setattr(classifier, "_call_gemini", orig_call)
+            if orig_model is None:
+                os.environ.pop("GEMINI_MODEL", None)
+            else:
+                os.environ["GEMINI_MODEL"] = orig_model
+            if orig_stubs is None:
+                os.environ.pop("USE_STUBS", None)
+            else:
+                os.environ["USE_STUBS"] = orig_stubs
 
     # 4. Deterministic scoring
     finding = scoring.build_finding(

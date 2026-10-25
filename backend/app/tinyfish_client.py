@@ -12,7 +12,7 @@ import os
 import time
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, TYPE_CHECKING
 
 # Attempt imports from shared application modules; fallback gracefully if not yet pushed
 try:
@@ -23,7 +23,7 @@ except ImportError:
     except ImportError:
         reserve_tinyfish_request = None
 
-try:
+if TYPE_CHECKING:
     from app.models import (
         ActivityEvent,
         Emit,
@@ -33,16 +33,27 @@ try:
         Source,
         SourceType,
     )
-except ImportError:
-    from backend.app.models import (
-        ActivityEvent,
-        Emit,
-        IssueItem,
-        PageContent,
-        ResearchResult,
-        Source,
-        SourceType,
-    )
+else:
+    try:
+        from app.models import (
+            ActivityEvent,
+            Emit,
+            IssueItem,
+            PageContent,
+            ResearchResult,
+            Source,
+            SourceType,
+        )
+    except ImportError:
+        from backend.app.models import (
+            ActivityEvent,
+            Emit,
+            IssueItem,
+            PageContent,
+            ResearchResult,
+            Source,
+            SourceType,
+        )
 
 
 # Budget & Safety Constants
@@ -216,6 +227,11 @@ class TinyFishClient:
         Supports (allowed, total_used, development_used) tuple and plain bool.
         """
         self._check_live_gate(operation)
+        if self.reserve_fn is None:
+            raise LedgerUnavailableError(
+                f"Durable ledger 'reserve_tinyfish_request' is required for live calls but not available. "
+                f"Failing closed for operation '{operation}'."
+            )
 
         try:
             res = self.reserve_fn(self.stage, self.dev_cap, self.total_cap)
@@ -1222,8 +1238,8 @@ async def research_report(
         run_id = str(run_id)
 
         summary = ""
-        if hasattr(res, "deep_result") and getattr(res, "deep_result"):
-            dr = res.deep_result
+        dr = getattr(res, "deep_result", None)
+        if dr:
             summary = dr.get("result", "") if isinstance(dr, dict) else getattr(dr, "result", "")
         elif hasattr(res, "summary"):
             summary = getattr(res, "summary", "")

@@ -35,7 +35,9 @@ def block_network_sockets(monkeypatch):
         saved = socket.socket.connect
         socket.socket.connect = orig_connect
         try:
-            return orig_socketpair(*args, **kwargs)
+            if orig_socketpair is not None:
+                return orig_socketpair(*args, **kwargs)
+            raise OSError("socketpair not supported")
         finally:
             socket.socket.connect = saved
 
@@ -200,8 +202,12 @@ def test_try_classifier_injection_fixture_treats_injection_as_content(capsys):
     assert quote_found is True
 
 
-def test_try_classifier_detects_classifier_mismatch_and_prints_for_aman_ansh(capsys):
+def test_try_classifier_detects_classifier_mismatch_and_prints_for_aman_ansh(monkeypatch, capsys):
     """When classifier.py does not expose classify(...), reports mismatch for Aman and Ansh without crashing."""
+    from app import classifier
+
+    monkeypatch.delattr(classifier, "classify", raising=False)
+
     fixture_path = Path("backend/fixtures/pages/synthetic_benign.json")
     if not fixture_path.is_file():
         fixture_path = Path("fixtures/pages/synthetic_benign.json")

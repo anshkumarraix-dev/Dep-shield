@@ -9,7 +9,7 @@ import {
   Play,
   RotateCcw,
   Sparkles,
-  ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import {
   validateAndParsePackageLock,
@@ -21,9 +21,10 @@ import { LockfileParsedSummary } from '@/types';
 interface UploadCardProps {
   onStartScan: (summary: LockfileParsedSummary) => void;
   isScanning: boolean;
+  onSelectPreset?: (presetId: string) => void;
 }
 
-export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
+export function UploadCard({ onStartScan, isScanning, onSelectPreset }: UploadCardProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<LockfileParsedSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -98,11 +99,17 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
   };
 
   const handleLoadSample = () => {
-    processFileContent(SAMPLE_DEMO_PACKAGE_LOCK, 'sample-package-lock.json', true);
+    processFileContent(SAMPLE_DEMO_PACKAGE_LOCK, 'event-stream-2018.json', true);
+    if (onSelectPreset) {
+      onSelectPreset('event-stream-2018');
+    }
   };
 
-  const handleLoadLegacySample = () => {
-    processFileContent(SAMPLE_LEGACY_PACKAGE_LOCK, 'legacy-auth-package-lock.json', true);
+  const handleLoadUaParserSample = () => {
+    processFileContent(SAMPLE_LEGACY_PACKAGE_LOCK, 'ua-parser-js-2021.json', true);
+    if (onSelectPreset) {
+      onSelectPreset('ua-parser-js-2021');
+    }
   };
 
   const handleClear = () => {
@@ -114,51 +121,53 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
-
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+    <div className="card-glass-elevated rounded-2xl p-6 sm:p-7 relative overflow-hidden transition-all">
+      {/* Header with Title and Presets */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-white flex items-center gap-2">
-              <FileCode2 className="h-5 w-5 text-cyan-400" />
-              Upload Dependency Manifest
+            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+              <FileCode2 className="h-5 w-5" />
+            </div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight font-sans">
+              Scan Dependency Manifest
             </h2>
-            <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-mono text-cyan-400 border border-cyan-500/20">
-              npm v2 / v3
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-mono text-slate-600 border border-slate-200">
+              lockfile v2 / v3
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Provide a <code className="text-cyan-300">package-lock.json</code> to investigate public threat signals and produce evidence-backed, version-specific risk alerts.
+          <p className="text-xs text-slate-500 mt-1 max-w-xl">
+            Drop any <code className="text-blue-600 font-semibold font-mono">package-lock.json</code> to discover public threat signals and verify quotes with exact version resolution.
           </p>
         </div>
 
-        {/* Demo Preset Buttons */}
+        {/* 1-Click Incident Replay Presets */}
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-semibold text-slate-400 font-mono uppercase">
+            1-Click Replay:
+          </span>
           <button
             onClick={handleLoadSample}
             disabled={isScanning}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-700/60 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-300 transition-all hover:bg-cyan-900/60 hover:text-white active:scale-95 disabled:opacity-50"
-            title="Load Express + Lodash demo lockfile (v3)"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/80 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-all hover:bg-rose-100 hover:shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
+            title="Load event-stream 2018 backdoor incident replay"
           >
-            <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Preset: Node 18 (v3)</span>
+            <Zap className="h-3.5 w-3.5 text-rose-600" />
+            <span>event-stream (2018)</span>
           </button>
           <button
-            onClick={handleLoadLegacySample}
+            onClick={handleLoadUaParserSample}
             disabled={isScanning}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:bg-slate-700 hover:text-white active:scale-95 disabled:opacity-50"
-            title="Load Legacy Auth demo lockfile (v2)"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-700 transition-all hover:bg-amber-100 hover:shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
+            title="Load ua-parser-js 2021 account hijack incident replay"
           >
-            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-            <span>Preset: Legacy Auth (v2)</span>
+            <Zap className="h-3.5 w-3.5 text-amber-600" />
+            <span>ua-parser-js (2021)</span>
           </button>
         </div>
       </div>
 
-      {/* Main Upload / Drag-and-Drop Area */}
+      {/* Main Upload / Drag & Drop Surface */}
       <div className="mt-5">
         <input
           ref={fileInputRef}
@@ -176,128 +185,100 @@ export function UploadCard({ onStartScan, isScanning }: UploadCardProps) {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`group cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all ${
+            className={`group cursor-pointer rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center transition-all ${
               dragActive
-                ? 'border-cyan-400 bg-cyan-500/10'
-                : 'border-slate-800 hover:border-slate-700 hover:bg-slate-800/30'
+                ? 'border-blue-500 bg-blue-50/60 scale-[1.01]'
+                : 'border-slate-200/90 hover:border-blue-400 hover:bg-slate-50/60'
             }`}
           >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800/80 text-cyan-400 group-hover:scale-105 transition-transform border border-slate-700">
-              <UploadCloud className="h-6 w-6" />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 transition-transform shadow-xs border border-blue-100">
+              <UploadCloud className="h-7 w-7" />
             </div>
-            <p className="mt-4 text-xs font-medium text-slate-200">
-              Drag & drop your <span className="text-cyan-400 font-mono">package-lock.json</span> here, or{' '}
-              <span className="text-cyan-400 underline underline-offset-2">browse files</span>
+            <p className="mt-4 text-sm font-semibold text-slate-800">
+              Drag & drop your <span className="text-blue-600 font-mono">package-lock.json</span> here, or{' '}
+              <span className="text-blue-600 underline underline-offset-2">browse file</span>
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Strictly validated for lockfile format v2 or v3. Zero external API calls during demonstration.
+            <p className="mt-1.5 text-xs text-slate-400">
+              Strictly validated for lockfile v2/v3 &bull; Resolves direct & transitive shortest paths
             </p>
           </div>
         ) : (
-          /* File Preview Card */
-          <div className="rounded-xl border border-cyan-500/30 bg-slate-950/60 p-4">
+          /* Staged File Preview Card */
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/30 p-5 animate-in fade-in slide-in-from-top-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                  <CheckCircle2 className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-white font-mono">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-slate-900 font-mono">
                       {selectedSummary.fileName}
                     </span>
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      ({(selectedSummary.fileSizeBytes / 1024).toFixed(1)} KB)
+                    <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-mono text-blue-700 border border-blue-200 font-semibold shadow-2xs">
+                      v{selectedSummary.lockfileVersion}
                     </span>
                     {selectedSummary.isSyntheticSample && (
-                      <span className="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono text-amber-400 border border-amber-500/30">
-                        Synthetic Demo Sample
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-mono text-slate-600 border border-slate-200">
+                        Demo Replay
                       </span>
                     )}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 flex-wrap">
                     <span>
-                      Project:{' '}
-                      <strong className="text-slate-200">
-                        {selectedSummary.projectName}@{selectedSummary.projectVersion}
-                      </strong>
-                    </span>
-                    <span>
-                      Format:{' '}
-                      <strong className="text-slate-200 font-mono">v{selectedSummary.lockfileVersion}</strong>
-                    </span>
-                    <span>
-                      Packages:{' '}
-                      <strong className="text-cyan-300">
+                      <strong className="text-slate-800 font-semibold font-mono">
                         {selectedSummary.totalPackagesDetected}
                       </strong>{' '}
-                      ({selectedSummary.directDependenciesCount} direct, {selectedSummary.transitiveDependenciesCount} transitive)
+                      packages
                     </span>
+                    <span>&bull;</span>
                     <span>
-                      Analysed Scope:{' '}
-                      <strong className="text-emerald-400">
-                        {selectedSummary.analyzedPackages?.length || 4} direct
-                      </strong>
+                      <strong className="text-slate-800 font-semibold font-mono">
+                        {selectedSummary.directDependenciesCount}
+                      </strong>{' '}
+                      direct
+                    </span>
+                    <span>&bull;</span>
+                    <span>
+                      <strong className="text-slate-800 font-semibold font-mono">
+                        {selectedSummary.transitiveDependenciesCount}
+                      </strong>{' '}
+                      transitive
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex items-center gap-2 self-start sm:self-center">
                 <button
                   onClick={handleClear}
                   disabled={isScanning}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 px-3 py-2 text-xs font-medium transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Replace File</span>
+                  <RotateCcw className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => onStartScan(selectedSummary)}
                   disabled={isScanning}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2 text-xs font-semibold text-slate-950 shadow-md shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-xs font-semibold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>{isScanning ? 'Scan Running...' : 'Start Demo Scan'}</span>
+                  <Play className={`h-4 w-4 fill-current ${isScanning ? 'animate-spin' : ''}`} />
+                  <span>{isScanning ? 'Analyzing Signals...' : 'Start Threat Investigation'}</span>
                 </button>
               </div>
             </div>
-
-            {/* Edge-case warning if applicable */}
-            {selectedSummary.warningMessage && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-300">
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <span>{selectedSummary.warningMessage}</span>
-              </div>
-            )}
           </div>
         )}
 
         {/* Error Notification */}
         {errorMessage && (
-          <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-            <AlertTriangle className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="font-semibold">Validation Error:</span> {errorMessage}
-            </div>
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 flex items-center gap-2.5 animate-in fade-in">
+            <AlertTriangle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+            <span>{errorMessage}</span>
           </div>
         )}
-
-        {/* Synthetic Demonstration Notice Banner */}
-        <div className="mt-4 flex items-center justify-between rounded-lg bg-slate-950/40 px-3.5 py-2 text-[11px] text-slate-400 border border-slate-800/80">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-cyan-400" />
-            <span>
-              <strong>Safe Demonstration Mode:</strong> All scans execute 100% locally with synthetic threat corpus. Complements standard scanners (Dependabot/Snyk/OSV). Zero external network requests.
-            </span>
-          </div>
-          <span className="hidden md:inline font-mono text-[10px] text-amber-400/90 font-medium">
-            DEMO MODE — SYNTHETIC THREAT DATA
-          </span>
-        </div>
       </div>
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SecurityFinding, QuoteVerificationStatus } from '@/types';
 import { RiskBadge, OsvBadge } from './FindingsTable';
 import {
@@ -32,30 +32,30 @@ export function QuoteVerificationBadge({ status }: { status?: QuoteVerificationS
   const styles: Record<QuoteVerificationStatus, { label: string; bg: string; text: string; border: string; desc: string }> = {
     simulated_verified: {
       label: 'Simulated Quote Verified',
-      bg: 'bg-emerald-950/50',
-      text: 'text-emerald-300',
-      border: 'border-emerald-800/50',
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-700',
+      border: 'border-emerald-200',
       desc: 'Simulated verification against synthetic benchmark fixture (Demo mode - no live network request)',
     },
     unverified: {
       label: 'Unverified Quote',
-      bg: 'bg-amber-950/50',
-      text: 'text-amber-300',
-      border: 'border-amber-800/50',
+      bg: 'bg-amber-50',
+      text: 'text-amber-800',
+      border: 'border-amber-200',
       desc: 'Source text was not checked against ground truth',
     },
     conflicting: {
       label: 'Conflicting Evidence',
-      bg: 'bg-rose-950/50',
-      text: 'text-rose-300',
-      border: 'border-rose-800/50',
+      bg: 'bg-rose-50',
+      text: 'text-rose-700',
+      border: 'border-rose-200',
       desc: 'Public evidence sources disagree on vulnerability impact or version range',
     },
     unknown: {
       label: 'Unknown Verification',
-      bg: 'bg-slate-800',
-      text: 'text-slate-300',
-      border: 'border-slate-700',
+      bg: 'bg-slate-100',
+      text: 'text-slate-600',
+      border: 'border-slate-200',
       desc: 'Insufficient evidence to reach a quote verification conclusion',
     },
   };
@@ -65,7 +65,7 @@ export function QuoteVerificationBadge({ status }: { status?: QuoteVerificationS
   return (
     <span
       title={config.desc}
-      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-mono border ${config.bg} ${config.text} ${config.border}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono border ${config.bg} ${config.text} ${config.border}`}
     >
       <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
       <span>{config.label}</span>
@@ -97,12 +97,14 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
   }, [finding, onClose]);
 
   // Reset local state when finding changes
-  useEffect(() => {
+  const [prevFindingId, setPrevFindingId] = useState<string | undefined>(finding?.id);
+  if (prevFindingId !== finding?.id) {
+    setPrevFindingId(finding?.id);
     setResearchDossier(null);
     setIsResearching(false);
     setIsMitigated(false);
     setCopiedCommand(false);
-  }, [finding?.id]);
+  }
 
   if (!finding) return null;
 
@@ -137,21 +139,21 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs transition-opacity animate-in fade-in"
       />
 
       {/* Drawer Container (Slide-over from right) */}
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-        <aside className="w-screen max-w-2xl bg-slate-900 border-l border-slate-800 text-slate-100 shadow-2xl flex flex-col justify-between overflow-y-auto">
+        <aside className="w-screen max-w-2xl bg-white border-l border-slate-200 text-slate-800 shadow-2xl flex flex-col justify-between overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-6 py-5 backdrop-blur-md">
+          <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur-md">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <RiskBadge level={finding.riskLevel} />
                   <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
                   {finding.signalCategory && (
-                    <span className="rounded bg-cyan-950/60 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-cyan-800/50 uppercase">
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-mono text-slate-700 border border-slate-200 uppercase font-medium">
                       {finding.signalCategory.replace(/_/g, ' ')}
                     </span>
                   )}
@@ -159,12 +161,12 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                     <QuoteVerificationBadge status={finding.quoteVerification} />
                   )}
                   {finding.cvssScore && (
-                    <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-slate-300 border border-slate-700">
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-mono text-slate-700 border border-slate-200 font-medium">
                       CVSS {finding.cvssScore.toFixed(1)}
                     </span>
                   )}
                   {finding.advisoryId && (
-                    <span className="rounded bg-cyan-950/40 px-2 py-0.5 text-[11px] font-mono text-cyan-300 border border-cyan-800/50">
+                    <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-mono text-blue-700 border border-blue-200">
                       {finding.advisoryId}
                     </span>
                   )}
@@ -172,16 +174,16 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
                 <h3
                   id="evidence-drawer-title"
-                  className="text-lg font-bold text-white tracking-tight pt-1"
+                  className="text-lg font-bold text-slate-900 tracking-tight pt-1"
                 >
                   {finding.title}
                 </h3>
 
-                <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-                  <span className="text-cyan-400 font-semibold">{finding.packageName}</span>
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                  <span className="text-blue-700 font-bold">{finding.packageName}</span>
                   <span>@</span>
-                  <span className="text-slate-200">{finding.installedVersion}</span>
-                  <span className="text-slate-600">&bull;</span>
+                  <span className="text-slate-800 font-medium">{finding.installedVersion}</span>
+                  <span className="text-slate-300">&bull;</span>
                   <span className="capitalize">{finding.dependencyType} Dependency</span>
                 </div>
               </div>
@@ -189,7 +191,7 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
               {/* Close Button */}
               <button
                 onClick={onClose}
-                className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="rounded-lg border border-slate-200 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
                 aria-label="Close evidence drawer"
               >
                 <X className="h-5 w-5" />
@@ -200,50 +202,50 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
           {/* Drawer Body */}
           <div className="flex-1 px-6 py-6 space-y-6">
             {/* Synthetic Evidence Notice */}
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3.5 text-xs text-cyan-300 flex items-start gap-3">
-              <ShieldCheck className="h-4 w-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 flex items-start gap-3">
+              <ShieldCheck className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-white">DEMO MODE — SYNTHETIC THREAT DATA</p>
-                <p className="mt-0.5 text-cyan-200/90 leading-relaxed text-[11px]">
+                <p className="font-semibold text-blue-950">DEMO MODE — SYNTHETIC THREAT DATA</p>
+                <p className="mt-0.5 text-blue-800/90 leading-relaxed text-[11px]">
                   All intelligence quotes, provenance entries, and severity scores are synthetic examples for hackathon demonstration. No paid TinyFish or live Gemini requests were executed.
                 </p>
               </div>
             </div>
 
             {/* Heuristic Confidence & Severity Policy Notice */}
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-2 text-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-200">Confidence Rating:</span>
-                  <span className="font-mono text-cyan-300 font-bold">
+                  <span className="font-semibold text-slate-800">Confidence Rating:</span>
+                  <span className="font-mono text-blue-700 font-bold">
                     {(finding.confidence * 100).toFixed(0)}%
                   </span>
-                  <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 font-mono">
+                  <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] text-slate-700 font-mono">
                     Heuristic (Uncalibrated)
                   </span>
                 </div>
-                <div className="text-[11px] font-mono text-slate-400">
+                <div className="text-[11px] font-mono text-slate-500">
                   {finding.sourceCount} {finding.sourceCount === 1 ? 'Independent Source' : 'Independent Sources'} (deduplicated)
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                <strong className="text-slate-300">Severity Policy:</strong> Confidence represents an uncalibrated heuristic rule score, not a statistical probability. A single uncorroborated source is capped at WATCH; higher severity requires verified version-match relevance and independent original evidence — never raw URL or domain counts.
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                <strong className="text-slate-800">Severity Policy:</strong> Confidence represents an uncalibrated heuristic rule score, not a statistical probability. A single uncorroborated source is capped at WATCH; higher severity requires verified version-match relevance and independent original evidence — never raw URL or domain counts.
               </p>
             </div>
 
             {/* Timeline Milestones (Distinct: Public Signal, Advisory, CVE) */}
             <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <GitCommit className="h-3.5 w-3.5 text-cyan-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <GitCommit className="h-3.5 w-3.5 text-blue-600" />
                 Vulnerability Timeline Milestones
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs font-mono">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs font-mono">
                 {/* Milestone 1: First Public Signal */}
-                <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 space-y-1">
-                  <span className="text-[10px] uppercase text-cyan-400 font-bold block">
+                <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-1">
+                  <span className="text-[10px] uppercase text-blue-700 font-bold block">
                     1. First Public Signal
                   </span>
-                  <div className="text-slate-200 text-xs font-semibold">
+                  <div className="text-slate-900 text-xs font-semibold">
                     {finding.firstSignalAt
                       ? new Date(finding.firstSignalAt).toUTCString().replace('GMT', 'UTC')
                       : 'Unknown / Not recorded'}
@@ -254,11 +256,11 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                 </div>
 
                 {/* Milestone 2: Official Advisory */}
-                <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 space-y-1">
-                  <span className="text-[10px] uppercase text-amber-400 font-bold block">
+                <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-1">
+                  <span className="text-[10px] uppercase text-amber-700 font-bold block">
                     2. Official Advisory
                   </span>
-                  <div className="text-slate-200 text-xs font-semibold">
+                  <div className="text-slate-900 text-xs font-semibold">
                     {finding.officialAdvisoryAt
                       ? new Date(finding.officialAdvisoryAt).toUTCString().replace('GMT', 'UTC')
                       : 'None (Pre-disclosure)'}
@@ -269,11 +271,11 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                 </div>
 
                 {/* Milestone 3: CVE Publication */}
-                <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 space-y-1">
-                  <span className="text-[10px] uppercase text-rose-400 font-bold block">
+                <div className="p-2.5 rounded-lg bg-white border border-slate-200 space-y-1">
+                  <span className="text-[10px] uppercase text-rose-700 font-bold block">
                     3. CVE Publication
                   </span>
-                  <div className="text-slate-200 text-xs font-semibold">
+                  <div className="text-slate-900 text-xs font-semibold">
                     {finding.cvePublishedAt
                       ? new Date(finding.cvePublishedAt).toUTCString().replace('GMT', 'UTC')
                       : 'Not Assigned (Pre-CVE)'}
@@ -289,26 +291,26 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
             </section>
 
             {/* TinyFish Deep Research Interactive Intelligence Dossier */}
-            <section className="space-y-2 rounded-xl border border-indigo-900/50 bg-indigo-950/20 p-4">
+            <section className="space-y-2 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600" />
                   Deep Security Intelligence
                 </h4>
                 {!researchDossier && (
                   <button
                     onClick={handleRunDeepResearch}
                     disabled={isResearching}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-700/70 px-3 py-1.5 text-[11px] font-medium transition-all shadow-sm active:scale-95 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-[11px] font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
                   >
                     {isResearching ? (
                       <>
-                        <Loader2 className="h-3 w-3 animate-spin text-indigo-400" />
+                        <Loader2 className="h-3 w-3 animate-spin text-white" />
                         <span>Synthesizing Intelligence...</span>
                       </>
                     ) : (
                       <>
-                        <Sparkles className="h-3 w-3 text-indigo-400" />
+                        <Sparkles className="h-3 w-3 text-white" />
                         <span>Run Deep Research</span>
                       </>
                     )}
@@ -317,25 +319,25 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
               </div>
 
               {isResearching && (
-                <div className="rounded-xl border border-indigo-800/40 bg-indigo-950/40 p-4 space-y-2 text-center animate-pulse mt-2">
+                <div className="rounded-xl border border-sky-200 bg-white p-4 space-y-2 text-center animate-pulse mt-2">
                   <div className="flex justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                   </div>
-                  <p className="text-xs font-medium text-indigo-200">
+                  <p className="text-xs font-medium text-slate-800">
                     Dispatching multi-vector inquiry across GitHub advisory graphs, release diffs & exploit feeds...
                   </p>
-                  <p className="text-[10px] text-indigo-400 font-mono">
+                  <p className="text-[10px] text-slate-500 font-mono">
                     Synthetic Sandbox Model Active • $0.00 billable API cost
                   </p>
                 </div>
               )}
 
               {researchDossier && (
-                <div className="rounded-xl border border-indigo-700/60 bg-indigo-950/40 p-3.5 space-y-3 text-xs animate-in fade-in slide-in-from-top-2 mt-2">
-                  <div className="flex items-center justify-between border-b border-indigo-800/50 pb-2">
+                <div className="rounded-xl border border-sky-200 bg-white p-3.5 space-y-3 text-xs animate-in fade-in slide-in-from-top-2 mt-2 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                      <span className="text-[11px] font-bold font-mono uppercase text-indigo-300">
+                      <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span className="text-[11px] font-bold font-mono uppercase text-blue-700">
                         Autonomous Threat Dossier Synthesized
                       </span>
                     </div>
@@ -343,17 +345,17 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                       {researchDossier.completedAt}
                     </span>
                   </div>
-                  <p className="text-slate-200 leading-relaxed text-[11px]">
+                  <p className="text-slate-700 leading-relaxed text-[11px]">
                     {researchDossier.summary}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] pt-1">
-                    <div className="rounded-lg bg-slate-900/90 p-2 border border-slate-800">
+                    <div className="rounded-lg bg-slate-50 p-2 border border-slate-200">
                       <span className="text-slate-500 uppercase block font-semibold">Exploitability</span>
-                      <span className="text-rose-300 font-mono">{researchDossier.exploitability}</span>
+                      <span className="text-rose-700 font-mono font-medium">{researchDossier.exploitability}</span>
                     </div>
-                    <div className="rounded-lg bg-slate-900/90 p-2 border border-slate-800">
+                    <div className="rounded-lg bg-slate-50 p-2 border border-slate-200">
                       <span className="text-slate-500 uppercase block font-semibold">Multi-Vector Consensus</span>
-                      <span className="text-cyan-300 font-mono">{researchDossier.consensusScore}</span>
+                      <span className="text-blue-700 font-mono font-medium">{researchDossier.consensusScore}</span>
                     </div>
                   </div>
                 </div>
@@ -362,22 +364,22 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
             {/* Risk Explanation */}
             <section className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
                 Threat Assessment & Impact
               </h4>
-              <p className="text-xs text-slate-300 bg-slate-950/50 p-4 rounded-xl border border-slate-800/80 leading-relaxed">
+              <p className="text-xs text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-200 leading-relaxed">
                 {finding.riskExplanation}
               </p>
 
               {/* Deterministic Scoring Rule */}
               {finding.deterministicRuleApplied && (
-                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-1.5 text-xs">
-                  <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-xs">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5 text-xs">
+                  <div className="flex items-center gap-1.5 text-blue-700 font-semibold text-xs">
                     <Scale className="h-4 w-4" />
                     <span>Deterministic Rule Applied</span>
                   </div>
-                  <p className="text-slate-300 font-mono text-[11px] leading-relaxed">
+                  <p className="text-slate-800 font-mono text-[11px] leading-relaxed">
                     {finding.deterministicRuleApplied}
                   </p>
                   <p className="text-[10px] text-slate-500">
@@ -388,12 +390,12 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
               {/* Corroboration Details */}
               {finding.corroborationDetails && (
-                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-1 text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-300 font-semibold text-xs">
-                    <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-800 font-semibold text-xs">
+                    <ShieldCheck className="h-4 w-4 text-blue-600" />
                     <span>Corroboration & Registrable Domains</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
                     {finding.corroborationDetails}
                   </p>
                 </div>
@@ -401,26 +403,26 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
               {/* Uncertainty and Conflicting Information */}
               {finding.uncertaintyNotes && (
-                <div className="rounded-xl border border-amber-900/30 bg-amber-950/20 p-3.5 space-y-1 text-xs">
-                  <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-xs">
-                    <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-1 text-xs">
+                  <div className="flex items-center gap-1.5 text-amber-800 font-semibold text-xs">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
                     <span>Uncertainty & Conflicting Signals</span>
                   </div>
-                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  <p className="text-[11px] text-amber-900 leading-relaxed">
                     {finding.uncertaintyNotes}
                   </p>
                 </div>
               )}
 
               {/* OSV Telemetry Explicit Tri-state Status */}
-              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 text-xs flex items-start gap-3">
-                <Database className="h-4 w-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs flex items-start gap-3">
+                <Database className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-200">OSV Verification:</span>
+                    <span className="font-semibold text-slate-800">OSV Verification:</span>
                     <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
                   </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
                     {finding.in_osv === true &&
                       'Confirmed match: package coordinate and version correlated with an active CVE advisory in the OSV database (in_osv: true).'}
                     {finding.in_osv === false &&
@@ -434,25 +436,25 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
             {/* Dependency Graph Chain Path */}
             <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5 text-cyan-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-blue-600" />
                 Dependency Resolution Path
               </h4>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 font-mono text-xs text-slate-300">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-xs text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
                   {finding.dependencyPath.map((node, idx) => (
                     <React.Fragment key={node}>
                       <span
                         className={`rounded px-2 py-1 ${
                           idx === finding.dependencyPath.length - 1
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold'
-                            : 'bg-slate-800/80 text-slate-300 border border-slate-700/60'
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200 font-bold'
+                            : 'bg-white text-slate-700 border border-slate-200'
                         }`}
                       >
                         {node}
                       </span>
                       {idx < finding.dependencyPath.length - 1 && (
-                        <ArrowRight className="h-3 w-3 text-slate-500 flex-shrink-0" />
+                        <ArrowRight className="h-3 w-3 text-slate-400 flex-shrink-0" />
                       )}
                     </React.Fragment>
                   ))}
@@ -462,28 +464,28 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
             {/* Version Match Analysis */}
             <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <GitCommit className="h-3.5 w-3.5 text-blue-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <GitCommit className="h-3.5 w-3.5 text-blue-600" />
                 Version Range Matching
               </h4>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 space-y-2.5 text-xs">
-                <div className="grid grid-cols-3 gap-2 pb-3 border-b border-slate-800/80 text-center font-mono">
-                  <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                    <span className="text-[10px] uppercase text-slate-500 block">Installed</span>
-                    <span className="font-bold text-rose-400">{finding.installedVersion}</span>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2.5 text-xs">
+                <div className="grid grid-cols-3 gap-2 pb-3 border-b border-slate-200 text-center font-mono">
+                  <div className="p-2 rounded-lg bg-white border border-slate-200">
+                    <span className="text-[10px] uppercase text-slate-400 block">Installed</span>
+                    <span className="font-bold text-rose-700">{finding.installedVersion}</span>
                   </div>
-                  <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                    <span className="text-[10px] uppercase text-slate-500 block">Affected Range</span>
-                    <span className="font-bold text-amber-400">{finding.affectedRange || 'N/A'}</span>
+                  <div className="p-2 rounded-lg bg-white border border-slate-200">
+                    <span className="text-[10px] uppercase text-slate-400 block">Affected Range</span>
+                    <span className="font-bold text-amber-700">{finding.affectedRange || 'N/A'}</span>
                   </div>
-                  <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                    <span className="text-[10px] uppercase text-slate-500 block">Recommended Fix</span>
-                    <span className="font-bold text-emerald-400">
+                  <div className="p-2 rounded-lg bg-white border border-slate-200">
+                    <span className="text-[10px] uppercase text-slate-400 block">Recommended Fix</span>
+                    <span className="font-bold text-emerald-700">
                       {finding.fixedVersion ? `v${finding.fixedVersion}` : 'Audit / Mitigate'}
                     </span>
                   </div>
                 </div>
-                <p className="text-slate-300 leading-relaxed text-[11px]">
+                <p className="text-slate-600 leading-relaxed text-[11px]">
                   {finding.versionMatchExplanation}
                 </p>
               </div>
@@ -491,38 +493,38 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
             {/* Evidence Quotes (NO dangerouslySetInnerHTML) */}
             <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-cyan-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-blue-600" />
                 Evidence Quotes & Signal Telemetry
               </h4>
               <div className="space-y-2.5">
                 {finding.evidenceQuotes.map((item, idx) => (
                   <div
                     key={idx}
-                    className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-1.5"
+                    className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-1.5 shadow-xs"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
-                      <span className="font-medium text-slate-400 font-mono">{item.source}</span>
+                      <span className="font-medium text-slate-700 font-mono">{item.source}</span>
                       <div className="flex items-center gap-1.5">
                         {item.publishedAt && (
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-slate-500 font-mono">
                             Published: {new Date(item.publishedAt).toLocaleDateString()}
                           </span>
                         )}
                         {item.exactQuoteVerified && (
-                          <span className="rounded bg-emerald-950/50 px-1.5 py-0.2 text-[9px] font-mono text-emerald-300 border border-emerald-800/50">
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-mono text-emerald-700 border border-emerald-200">
                             Exact Quote Verified
                           </span>
                         )}
                         {item.isSynthetic && (
-                          <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[9px] font-mono text-slate-400 border border-slate-700">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-mono text-slate-600 border border-slate-200">
                             Synthetic Telemetry
                           </span>
                         )}
                       </div>
                     </div>
                     {/* Normal text rendering */}
-                    <blockquote className="border-l-2 border-cyan-500/60 pl-3 text-xs text-slate-200 italic font-mono leading-relaxed">
+                    <blockquote className="border-l-2 border-blue-600 pl-3 text-xs text-slate-800 italic font-mono leading-relaxed">
                       &ldquo;{item.quote}&rdquo;
                     </blockquote>
                     <p className="text-[11px] text-slate-500 pl-3">Context: {item.context}</p>
@@ -533,34 +535,34 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
             {/* Sources & References with Separated Published vs Retrieved Times */}
             <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 text-cyan-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Database className="h-3.5 w-3.5 text-blue-600" />
                 Corroborating Sources & Provenance
               </h4>
-              <div className="divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/60">
+              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-xs">
                 {finding.sources.map((src, idx) => (
                   <div key={idx} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-200">{src.name}</span>
+                        <span className="font-medium text-slate-900">{src.name}</span>
                         <span
-                          className={`rounded px-1.5 py-0.2 text-[9px] font-mono border ${
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-mono border ${
                             src.isOriginalSource
-                              ? 'bg-cyan-950/50 text-cyan-300 border-cyan-800/50'
-                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
                           }`}
                         >
                           {src.isOriginalSource ? 'Original Source' : 'Syndicated / Repost'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-400">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
                         <span>
-                          Type: <strong className="font-mono text-slate-300">{src.sourceType}</strong>
+                          Type: <strong className="font-mono text-slate-700">{src.sourceType}</strong>
                         </span>
                         <span>&bull;</span>
                         <span>
                           Published:{' '}
-                          <strong className="font-mono text-slate-300">
+                          <strong className="font-mono text-slate-700">
                             {src.publishedAt
                               ? new Date(src.publishedAt).toLocaleDateString()
                               : 'Unknown / Not recorded'}
@@ -569,7 +571,7 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                         <span>&bull;</span>
                         <span>
                           Retrieved:{' '}
-                          <strong className="font-mono text-slate-300">
+                          <strong className="font-mono text-slate-700">
                             {new Date(src.retrievedAt).toLocaleDateString()}
                           </strong>
                         </span>
@@ -585,7 +587,7 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                         href={src.safeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 font-mono hover:underline flex-shrink-0 self-start sm:self-center"
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-mono hover:underline flex-shrink-0 self-start sm:self-center"
                       >
                         <span>Demo Link</span>
                         <ExternalLink className="h-3 w-3" />
@@ -598,30 +600,30 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
             {/* Remediation Guidance */}
             <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Terminal className="h-3.5 w-3.5 text-emerald-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Terminal className="h-3.5 w-3.5 text-emerald-600" />
                 Remediation & Action Plan
               </h4>
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3 text-xs">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3 text-xs">
                 {finding.recommendedAction && (
-                  <div className="rounded-lg bg-emerald-950/40 border border-emerald-500/20 p-2.5">
-                    <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block mb-1">
+                  <div className="rounded-lg bg-white border border-emerald-200 p-2.5 shadow-xs">
+                    <span className="text-[10px] uppercase font-mono text-emerald-700 font-bold block mb-1">
                       Recommended Developer Action:
                     </span>
-                    <p className="text-emerald-200 font-medium leading-relaxed">
+                    <p className="text-emerald-950 font-medium leading-relaxed">
                       {finding.recommendedAction}
                     </p>
                   </div>
                 )}
-                <p className="text-emerald-200/90 leading-relaxed text-[11px]">
+                <p className="text-emerald-900 leading-relaxed text-[11px]">
                   {finding.remediationGuidance}
                 </p>
                 {finding.fixedVersion && (
-                  <div className="rounded-lg bg-slate-950 p-2.5 font-mono text-[11px] text-cyan-300 border border-slate-800 flex items-center justify-between">
+                  <div className="rounded-lg bg-slate-900 p-2.5 font-mono text-[11px] text-sky-300 border border-slate-800 flex items-center justify-between shadow-xs">
                     <code>npm install {finding.packageName}@{finding.fixedVersion}</code>
                     <button
                       onClick={handleCopyCommand}
-                      className="ml-2 inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[10px] text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
+                      className="ml-2 inline-flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[10px] text-slate-200 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
                       title="Copy remediation command"
                     >
                       {copiedCommand ? (
@@ -643,17 +645,17 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
           </div>
 
           {/* Footer Controls */}
-          <div className="sticky bottom-0 border-t border-slate-800 bg-slate-900/95 px-6 py-4 flex items-center justify-between backdrop-blur-md">
+          <div className="sticky bottom-0 border-t border-slate-100 bg-white/95 px-6 py-4 flex items-center justify-between backdrop-blur-md">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">
-                Press <kbd className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300 border border-slate-700">ESC</kbd> to dismiss
+              <span className="text-[11px] text-slate-400">
+                Press <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600 border border-slate-200">ESC</kbd> to dismiss
               </span>
               <button
                 onClick={() => setIsMitigated(!isMitigated)}
-                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors cursor-pointer ${
                   isMitigated
-                    ? 'bg-emerald-950/60 border-emerald-700/60 text-emerald-300'
-                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold'
+                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
                 }`}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -662,7 +664,7 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition-colors shadow-sm cursor-pointer"
             >
               Close Drawer
             </button>

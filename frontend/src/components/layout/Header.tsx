@@ -1,82 +1,95 @@
 'use client';
 
 import React from 'react';
-import { Search, Bell, RefreshCw, Terminal, Menu } from 'lucide-react';
+import { ShieldCheck, RefreshCw, Sparkles, Terminal, Menu, Play } from 'lucide-react';
 import { envConfig } from '@/config/env';
 
 interface HeaderProps {
   onRefresh?: () => void;
   isScanning?: boolean;
   onToggleMobileMenu?: () => void;
+  onSelectReplayPreset?: (presetId: string) => void;
+  currentReplayCase?: string;
 }
 
 export function Header({
   onRefresh,
   isScanning = false,
   onToggleMobileMenu,
+  onSelectReplayPreset,
+  currentReplayCase,
 }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-800 bg-slate-950/80 px-4 sm:px-6 backdrop-blur-md">
-      {/* Mobile menu trigger + Search Bar */}
-      <div className="flex items-center gap-3 w-full max-w-xs sm:max-w-sm md:max-w-md">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/85 px-4 sm:px-6 md:px-8 backdrop-blur-md shadow-xs">
+      {/* Brand & Left Controls */}
+      <div className="flex items-center gap-3">
         {onToggleMobileMenu && (
           <button
             onClick={onToggleMobileMenu}
-            className="lg:hidden rounded-lg border border-slate-800 p-2 text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+            className="lg:hidden rounded-lg border border-slate-200 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             aria-label="Toggle navigation menu"
           >
             <Menu className="h-4 w-4" />
           </button>
         )}
 
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            id="global-header-search"
-            aria-label="Search dependencies, CVE-IDs, or packages"
-            type="text"
-            placeholder="Search dependencies, CVE-IDs, or packages..."
-            className="w-full rounded-lg border border-slate-800 bg-slate-900/90 py-1.5 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-500 transition-colors focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-          />
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-sky-500 text-white shadow-xs">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold tracking-tight text-slate-900 font-sans">
+                DepShield
+              </span>
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200/80">
+                v1.0 MVP
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 hidden sm:block">
+              npm Supply Chain Threat Radar
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Right controls */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Prominent Demo Mode Indicator Badge */}
-        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs">
-          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
-          <span className="font-semibold tracking-wide text-amber-300 font-mono text-[11px]">
-            DEMO MODE — SYNTHETIC THREAT DATA
+      {/* Right Controls: Quick Replay Presets + Status Badge */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Quick Replay Dropdown / Pill */}
+        {onSelectReplayPreset && (
+          <div className="hidden md:flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs text-slate-600">
+            <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+            <span className="font-medium text-slate-700">Replay Case:</span>
+            <select
+              value={currentReplayCase || ''}
+              onChange={(e) => onSelectReplayPreset(e.target.value)}
+              className="bg-transparent text-xs font-medium text-blue-700 font-mono focus:outline-none cursor-pointer"
+            >
+              <option value="event-stream-2018">event-stream (2018)</option>
+              <option value="ua-parser-js-2021">ua-parser-js (2021)</option>
+              <option value="benign-control-clean">benign-clean</option>
+            </select>
+          </div>
+        )}
+
+        {/* Demo Mode Badge */}
+        <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-medium text-slate-700 text-[11px]">
+            {envConfig.useMocks ? 'Demo Fixtures' : 'Live Connected'}
           </span>
         </div>
 
-
-        {/* Backend Target indicator */}
-        <div className="hidden md:flex items-center gap-1.5 rounded-md bg-slate-900/60 px-2.5 py-1 text-xs text-slate-400 font-mono border border-slate-800/80">
-          <Terminal className="h-3 w-3 text-cyan-400" />
-          <span>{envConfig.apiUrl}</span>
-        </div>
-
-        {/* Restart Demo Scan Action */}
+        {/* Re-Scan Action Button */}
         <button
           onClick={onRefresh}
           disabled={isScanning}
-          className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 transition-all hover:bg-cyan-500/20 active:scale-95 disabled:opacity-50"
-          title="Restart demo scan with current file"
-          aria-label="Restart demo scan"
+          className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-medium transition-all shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
+          title="Restart investigation on current package-lock.json"
+          aria-label="Restart scan"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{isScanning ? 'Scanning...' : 'Restart Demo'}</span>
-        </button>
-
-        {/* Notification Bell */}
-        <button
-          className="relative rounded-lg border border-slate-800 p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors"
-          aria-label="View notifications"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-cyan-400" />
+          <span>{isScanning ? 'Scanning...' : 'Re-Scan'}</span>
         </button>
       </div>
     </header>

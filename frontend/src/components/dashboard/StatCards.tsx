@@ -1,6 +1,9 @@
+'use client';
+
 import React from 'react';
-import { ShieldCheck, AlertOctagon, AlertTriangle, Layers, Database } from 'lucide-react';
+import { ShieldCheck, AlertOctagon, Layers, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { ScanSummaryMetrics } from '@/types';
+import { TiltCard } from '@/components/ui/TiltCard';
 
 interface StatCardsProps {
   metrics: ScanSummaryMetrics;
@@ -8,123 +11,144 @@ interface StatCardsProps {
 }
 
 export function StatCards({ metrics, onFilterClick }: StatCardsProps) {
-  const cards = [
-    {
-      id: 'score',
-      title: 'Shield Security Score',
-      value: `${metrics.shieldScore}/100`,
-      status: metrics.shieldScore >= 80 ? 'Robust Defense Posture' : 'Remediation Required',
-      statusColor: metrics.shieldScore >= 80 ? 'text-emerald-400' : 'text-amber-400',
-      subtitle: 'Demo heuristic (not a guarantee)',
-      icon: ShieldCheck,
-      iconColor: 'text-emerald-400',
-      bgGlow: 'from-emerald-500/10 to-transparent',
-      borderColor: 'border-slate-800',
-      action: () => onFilterClick?.('section', 'findings'),
-    },
-    {
-      id: 'critical',
-      title: 'Critical CVEs',
-      value: metrics.criticalCount,
-      status: metrics.criticalCount > 0 ? 'Immediate Attention Required' : 'Zero Critical Risks',
-      statusColor: metrics.criticalCount > 0 ? 'text-rose-400 font-semibold' : 'text-slate-400',
-      subtitle: 'Filter table for CRITICAL',
-      icon: AlertOctagon,
-      iconColor: 'text-rose-400',
-      bgGlow: 'from-rose-500/10 to-transparent',
-      borderColor: 'border-rose-900/40',
-      isPulsing: metrics.criticalCount > 0,
-      action: () => onFilterClick?.('riskLevel', 'CRITICAL'),
-    },
-    {
-      id: 'high-watch',
-      title: 'High & Watch Risks',
-      value: metrics.highCount + metrics.watchCount,
-      status: `${metrics.highCount} High Severity \u2022 ${metrics.watchCount} Watchlist`,
-      statusColor: 'text-amber-400',
-      subtitle: 'Filter table for HIGH',
-      icon: AlertTriangle,
-      iconColor: 'text-amber-400',
-      bgGlow: 'from-amber-500/10 to-transparent',
-      borderColor: 'border-slate-800',
-      action: () => onFilterClick?.('riskLevel', 'HIGH'),
-    },
-    {
-      id: 'packages',
-      title: 'Total Dependencies',
-      value: metrics.totalDependenciesScanned,
-      status: `${metrics.directCount} direct \u2022 ${metrics.transitiveCount} transitive`,
-      statusColor: 'text-slate-300',
-      subtitle: `Deep scope: ${metrics.analyzedCount || 4} direct pkgs`,
-      icon: Layers,
-      iconColor: 'text-cyan-400',
-      bgGlow: 'from-cyan-500/10 to-transparent',
-      borderColor: 'border-slate-800',
-      action: () => onFilterClick?.('section', 'dependencies'),
-    },
-    {
-      id: 'osv',
-      title: 'OSV Matched Records',
-      value: metrics.osvMatchesCount,
-      status: 'Correlated baseline CVE hits',
-      statusColor: 'text-cyan-400',
-      subtitle: metrics.scanDurationMs
-        ? `Scan time: ${(metrics.scanDurationMs / 1000).toFixed(1)}s`
-        : 'Tri-state verified',
-      icon: Database,
-      iconColor: 'text-cyan-400',
-      bgGlow: 'from-cyan-500/10 to-transparent',
-      borderColor: 'border-slate-800',
-      action: () => onFilterClick?.('section', 'findings'),
-    },
-  ];
+  const isHealthy = metrics.criticalCount === 0;
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <button
-              key={card.id}
-              onClick={card.action}
-              className={`group relative overflow-hidden rounded-xl border ${card.borderColor} bg-slate-900/85 p-4 shadow-sm transition-all hover:border-cyan-500/50 hover:bg-slate-900 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-cyan-500/50`}
-            >
-              {/* Ambient subtle glow */}
-              <div
-                className={`pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-gradient-to-br ${card.bgGlow} blur-2xl`}
-              />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* Card 1: Shield Posture Score */}
+      <TiltCard className="card-glass-elevated p-6 cursor-pointer group" maxTilt={6}>
+        <div
+          onClick={() => onFilterClick?.('section', 'findings')}
+          className="flex flex-col justify-between h-full space-y-4"
+        >
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 font-mono">
+              Supply Chain Posture
+            </span>
+            <div className={`p-2 rounded-xl ${isHealthy ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+          </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">
-                  {card.title}
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans">
+                {metrics.shieldScore}
+              </span>
+              <span className="text-sm font-semibold text-slate-400">/ 100</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                  isHealthy
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                    : 'bg-rose-50 text-rose-700 border-rose-200/80'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${isHealthy ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                {isHealthy ? 'Protected & Verified' : 'Vulnerabilities Detected'}
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Deterministic lead-time engine</span>
+            <span className="flex items-center gap-0.5 text-blue-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              Inspect <ArrowUpRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+      </TiltCard>
+
+      {/* Card 2: Threats & Risk Alerts */}
+      <TiltCard className="card-glass-elevated p-6 cursor-pointer group" maxTilt={6}>
+        <div
+          onClick={() => onFilterClick?.('riskLevel', metrics.criticalCount > 0 ? 'CRITICAL' : 'HIGH')}
+          className="flex flex-col justify-between h-full space-y-4"
+        >
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 font-mono">
+              Prioritized Threats
+            </span>
+            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+              <AlertOctagon className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans">
+                {metrics.criticalCount + metrics.highCount}
+              </span>
+              <span className="text-sm font-medium text-slate-400">active alerts</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              {metrics.criticalCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700 border border-rose-200">
+                  {metrics.criticalCount} Critical
                 </span>
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-950/70 ${card.iconColor}`}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-              </div>
+              )}
+              {metrics.highCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 border border-amber-200">
+                  {metrics.highCount} High
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 border border-sky-200">
+                {metrics.watchCount} Watch
+              </span>
+            </div>
+          </div>
 
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-white">{card.value}</span>
-                {card.isPulsing && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                  </span>
-                )}
-              </div>
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>{metrics.osvMatchesCount} correlated with OSV baseline</span>
+            <span className="flex items-center gap-0.5 text-blue-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              Filter <ArrowUpRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+      </TiltCard>
 
-              <p className={`mt-1.5 text-[11px] truncate ${card.statusColor}`}>{card.status}</p>
-              <p className="mt-0.5 text-[10px] text-slate-500 truncate group-hover:text-cyan-400 transition-colors">
-                {card.subtitle} &rarr;
-              </p>
-            </button>
-          );
-        })}
-      </div>
+      {/* Card 3: Dependency Inventory Scope */}
+      <TiltCard className="card-glass-elevated p-6 cursor-pointer group" maxTilt={6}>
+        <div
+          onClick={() => onFilterClick?.('section', 'dependencies')}
+          className="flex flex-col justify-between h-full space-y-4"
+        >
+          <div className="flex items-start justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 font-mono">
+              Dependency Scope
+            </span>
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+              <Layers className="h-5 w-5" />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 font-sans">
+                {metrics.totalDependenciesScanned}
+              </span>
+              <span className="text-sm font-medium text-slate-400">packages resolved</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                {metrics.directCount} Direct
+              </span>
+              <span className="text-slate-300">&bull;</span>
+              <span className="rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+                {metrics.transitiveCount} Transitive
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Analyzed top direct roots</span>
+            <span className="flex items-center gap-0.5 text-blue-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              View Tree <ArrowUpRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+      </TiltCard>
     </div>
   );
 }
-

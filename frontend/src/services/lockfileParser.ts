@@ -21,7 +21,8 @@ function extractPackageName(pkgPath: string, meta: Record<string, unknown>): str
 export function validateAndParsePackageLock(
   content: string,
   fileName = 'package-lock.json',
-  isSyntheticSample = false
+  isSyntheticSample = false,
+  parsedAt?: string
 ): LockfileValidationResult {
   if (!content || !content.trim()) {
     return {
@@ -141,6 +142,7 @@ export function validateAndParsePackageLock(
     }
 
     const pkgKey = `${name}@${version}`;
+    const hasInstallScript = Boolean(meta.hasInstallScript);
     if (!dedupeMap.has(pkgKey)) {
       const depItem: ParsedDependency = {
         name,
@@ -149,6 +151,7 @@ export function validateAndParsePackageLock(
         direct: isDirect,
         depPath,
         analyzed: false,
+        hasInstallScript,
       };
       dedupeMap.set(pkgKey, depItem);
       allParsed.push(depItem);
@@ -175,14 +178,14 @@ export function validateAndParsePackageLock(
 
   const summary: LockfileParsedSummary = {
     fileName,
-    fileSizeBytes: new Blob([content]).size,
+    fileSizeBytes: new TextEncoder().encode(content).length,
     lockfileVersion: numericVersion,
     projectName,
     projectVersion,
     totalPackagesDetected: allParsed.length,
     directDependenciesCount: directCount,
     transitiveDependenciesCount: transitiveCount,
-    parsedAt: new Date().toISOString(),
+    parsedAt: parsedAt || '2026-10-25T00:00:00.000Z',
     isSyntheticSample,
     packages: allParsed,
     analyzedPackages,

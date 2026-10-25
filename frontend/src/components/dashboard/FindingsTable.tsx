@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   SecurityFinding,
   RiskLevel,
@@ -39,27 +39,27 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
     { bg: string; text: string; border: string; icon: React.ComponentType<{ className?: string }> }
   > = {
     CRITICAL: {
-      bg: 'bg-rose-500/15',
-      text: 'text-rose-400 font-bold',
-      border: 'border-rose-500/30',
+      bg: 'bg-rose-50',
+      text: 'text-rose-700 font-semibold',
+      border: 'border-rose-200',
       icon: AlertOctagon,
     },
     HIGH: {
-      bg: 'bg-orange-500/15',
-      text: 'text-orange-400 font-bold',
-      border: 'border-orange-500/30',
+      bg: 'bg-amber-50',
+      text: 'text-amber-800 font-semibold',
+      border: 'border-amber-200',
       icon: AlertTriangle,
     },
     WATCH: {
-      bg: 'bg-amber-500/15',
-      text: 'text-amber-400 font-semibold',
-      border: 'border-amber-500/30',
+      bg: 'bg-sky-50',
+      text: 'text-sky-700 font-medium',
+      border: 'border-sky-200',
       icon: AlertCircle,
     },
     INFO: {
-      bg: 'bg-blue-500/15',
-      text: 'text-blue-400 font-medium',
-      border: 'border-blue-500/30',
+      bg: 'bg-slate-100',
+      text: 'text-slate-700 font-medium',
+      border: 'border-slate-200',
       icon: Info,
     },
   };
@@ -69,7 +69,7 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${config.bg} ${config.text} ${config.border}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] tracking-wide font-mono ${config.bg} ${config.text} ${config.border}`}
       role="status"
     >
       <Icon className="h-3 w-3 flex-shrink-0" />
@@ -90,30 +90,30 @@ export function OsvBadge({
 
   const styles: Record<OsvLookupState, { bg: string; text: string; border: string; label: string; tooltip: string }> = {
     MATCHED: {
-      bg: 'bg-rose-950/40',
-      text: 'text-rose-300 font-semibold',
-      border: 'border-rose-800/50',
+      bg: 'bg-rose-50',
+      text: 'text-rose-700 font-semibold',
+      border: 'border-rose-200',
       label: 'OSV Matched',
       tooltip: 'Confirmed CVE match in OSV database (in_osv: true)',
     },
     CLEAN: {
-      bg: 'bg-emerald-950/40',
-      text: 'text-emerald-300 font-semibold',
-      border: 'border-emerald-800/50',
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-700 font-semibold',
+      border: 'border-emerald-200',
       label: 'OSV Clean',
       tooltip: 'Explicitly checked in OSV with 0 advisories (in_osv: false)',
     },
     PROVISIONAL: {
-      bg: 'bg-amber-950/40',
-      text: 'text-amber-300 font-medium',
-      border: 'border-amber-800/50',
+      bg: 'bg-amber-50',
+      text: 'text-amber-800 font-medium',
+      border: 'border-amber-200',
       label: 'OSV Unchecked',
       tooltip: 'OSV lookup not performed / heuristic only (in_osv: null)',
     },
     UNKNOWN: {
-      bg: 'bg-slate-900',
-      text: 'text-slate-400',
-      border: 'border-slate-800',
+      bg: 'bg-slate-100',
+      text: 'text-slate-600',
+      border: 'border-slate-200',
       label: 'Unchecked',
       tooltip: 'Status unverified',
     },
@@ -124,7 +124,7 @@ export function OsvBadge({
   return (
     <span
       title={current.tooltip}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono border ${current.bg} ${current.text} ${current.border}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono border ${current.bg} ${current.text} ${current.border}`}
     >
       <Database className="h-2.5 w-2.5 flex-shrink-0" />
       <span>{current.label}</span>
@@ -210,8 +210,8 @@ export function FindingsTable({
     URL.revokeObjectURL(url);
   };
 
-  const filteredFindings = useMemo(() => {
-    const list = findings.filter((f) => {
+  const filteredFindings = findings
+    .filter((f) => {
       // Risk filter
       if (selectedRisk !== 'ALL' && f.riskLevel !== selectedRisk) {
         return false;
@@ -239,9 +239,8 @@ export function FindingsTable({
         );
       }
       return true;
-    });
-
-    return list.sort((a, b) => {
+    })
+    .sort((a, b) => {
       if (sortBy === 'severity') {
         const diff = SEVERITY_ORDER[b.riskLevel] - SEVERITY_ORDER[a.riskLevel];
         if (diff !== 0) return diff;
@@ -249,36 +248,35 @@ export function FindingsTable({
       }
       return a.packageName.localeCompare(b.packageName);
     });
-  }, [findings, selectedRisk, selectedDepType, searchQuery, sortBy]);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/85 p-5 shadow-xl">
+    <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-5 sm:p-6 shadow-xs">
       {/* Title & Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-cyan-400" />
+          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-blue-600" />
             Supply Chain Threat Findings
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             Correlated vulnerability telemetry across direct and transitive dependencies
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleExportReport}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-xs font-mono text-slate-300 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-mono text-slate-700 hover:text-blue-600 hover:border-blue-300 transition-colors shadow-xs"
             title="Download JSON threat intelligence report"
           >
-            <Download className="h-3.5 w-3.5 text-cyan-400" />
+            <Download className="h-3.5 w-3.5 text-blue-600" />
             <span>Export Report</span>
           </button>
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-slate-400">Showing</span>
-            <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-cyan-300 font-bold border border-cyan-500/20">
+            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-blue-700 font-bold border border-blue-200">
               {filteredFindings.length} of {findings.length}
             </span>
-            <span className="text-slate-400">findings</span>
+            <span className="text-slate-500">findings</span>
           </div>
         </div>
       </div>
@@ -287,7 +285,7 @@ export function FindingsTable({
       <div className="mt-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3">
         {/* Risk Level Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-medium text-slate-500 mr-1 flex items-center gap-1">
+          <span className="text-[11px] font-medium text-slate-400 mr-1 flex items-center gap-1">
             <Filter className="h-3 w-3" />
             Risk:
           </span>
@@ -295,10 +293,10 @@ export function FindingsTable({
             <button
               key={risk}
               onClick={() => setSelectedRisk(risk)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                 selectedRisk === risk
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'bg-slate-950/60 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-slate-200'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-300 font-semibold shadow-xs'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               {risk}
@@ -309,27 +307,27 @@ export function FindingsTable({
         {/* Secondary controls: Dep Type Toggle, Sort & Search */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Sort Control */}
-          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950/80 p-0.5 text-xs">
-            <span className="px-2 text-[10px] text-slate-500 font-medium flex items-center gap-1">
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+            <span className="px-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
               <ArrowUpDown className="h-3 w-3 text-slate-400" />
               Sort:
             </span>
             <button
               onClick={() => setSortBy('severity')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 sortBy === 'severity'
-                  ? 'bg-slate-800 text-cyan-300'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Severity
             </button>
             <button
               onClick={() => setSortBy('package')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 sortBy === 'package'
-                  ? 'bg-slate-800 text-cyan-300'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Name (A-Z)
@@ -337,33 +335,33 @@ export function FindingsTable({
           </div>
 
           {/* Direct / Transitive Toggle */}
-          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950/80 p-0.5 text-xs">
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
             <button
               onClick={() => setSelectedDepType('ALL')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'ALL'
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               All Types
             </button>
             <button
               onClick={() => setSelectedDepType('direct')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'direct'
-                  ? 'bg-slate-800 text-cyan-300'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Direct
             </button>
             <button
               onClick={() => setSelectedDepType('transitive')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'transitive'
-                  ? 'bg-slate-800 text-cyan-300'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               Transitive
@@ -372,7 +370,7 @@ export function FindingsTable({
 
           {/* Search Input */}
           <div className="relative flex-1 md:w-56">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               id="findings-search-input"
               aria-label="Search package, CVE, or title"
@@ -380,12 +378,12 @@ export function FindingsTable({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search package, category, title..."
-              className="w-full rounded-lg border border-slate-800 bg-slate-950/80 py-1 pl-8 pr-7 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+              className="w-full rounded-lg border border-slate-200 bg-white py-1 pl-8 pr-7 text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -395,11 +393,11 @@ export function FindingsTable({
       </div>
 
       {/* Table Container */}
-      <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800/70 bg-slate-950/40">
+      <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-800 bg-slate-950/80 text-[11px] font-semibold uppercase text-slate-400">
-              <th className="py-3 pl-3">Risk Level</th>
+            <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase text-slate-500">
+              <th className="py-3 pl-4">Risk Level</th>
               <th className="py-3">Package / Version</th>
               <th className="py-3">Dependency Type</th>
               <th className="py-3">Threat Summary</th>
@@ -410,15 +408,15 @@ export function FindingsTable({
                 Heuristic Confidence & Sources
               </th>
               <th className="py-3">OSV State</th>
-              <th className="py-3 pr-3 text-right">Details</th>
+              <th className="py-3 pr-4 text-right">Details</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/40">
+          <tbody className="divide-y divide-slate-100">
             {filteredFindings.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-500">
+                <td colSpan={7} className="py-8 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-1.5">
-                    <SlidersHorizontal className="h-5 w-5 text-slate-600" />
+                    <SlidersHorizontal className="h-5 w-5 text-slate-400" />
                     <span>No findings match the selected filters or search query.</span>
                     <button
                       onClick={() => {
@@ -426,7 +424,7 @@ export function FindingsTable({
                         setSelectedDepType('ALL');
                         setSearchQuery('');
                       }}
-                      className="mt-1 text-xs text-cyan-400 hover:underline"
+                      className="mt-1 text-xs text-blue-600 hover:underline cursor-pointer"
                     >
                       Reset all filters
                     </button>
@@ -442,37 +440,37 @@ export function FindingsTable({
                     onClick={() => onSelectFinding(finding)}
                     className={`group cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-cyan-500/10 border-l-2 border-l-cyan-400'
-                        : 'hover:bg-slate-800/40'
+                        ? 'bg-blue-50/70 border-l-4 border-l-blue-600'
+                        : 'hover:bg-slate-50/80'
                     }`}
                   >
                     {/* Risk Level Badge */}
-                    <td className="py-3 pl-3 whitespace-nowrap">
+                    <td className="py-3.5 pl-4 whitespace-nowrap">
                       <RiskBadge level={finding.riskLevel} />
                     </td>
 
                     {/* Package Name & Installed Version */}
-                    <td className="py-3 pr-4 whitespace-nowrap">
-                      <div className="font-semibold text-slate-200 group-hover:text-cyan-300 transition-colors font-mono">
+                    <td className="py-3.5 pr-4 whitespace-nowrap">
+                      <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors font-mono">
                         {finding.packageName}
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        <span className="text-slate-300">v{finding.installedVersion}</span>
+                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        <span className="text-slate-600">v{finding.installedVersion}</span>
                         {finding.fixedVersion && (
-                          <span className="text-slate-500 ml-1">
-                            &rarr; <span className="text-emerald-400">v{finding.fixedVersion}</span>
+                          <span className="text-slate-400 ml-1">
+                            &rarr; <span className="text-emerald-700 font-medium">v{finding.fixedVersion}</span>
                           </span>
                         )}
                       </div>
                     </td>
 
                     {/* Direct vs Transitive */}
-                    <td className="py-3 whitespace-nowrap">
+                    <td className="py-3.5 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-mono uppercase ${
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase ${
                           finding.dependencyType === 'direct'
-                            ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700/60'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200 font-medium'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}
                       >
                         <Layers className="h-2.5 w-2.5" />
@@ -481,33 +479,33 @@ export function FindingsTable({
                     </td>
 
                     {/* Title & Explanation */}
-                    <td className="py-3 pr-4 max-w-sm">
+                    <td className="py-3.5 pr-4 max-w-sm">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {finding.signalCategory && (
-                          <span className="rounded bg-cyan-950/60 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 border border-cyan-800/40">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.2 text-[9px] font-mono text-slate-600 border border-slate-200">
                             {finding.signalCategory.replace(/_/g, ' ')}
                           </span>
                         )}
-                        <span className="font-medium text-slate-200 line-clamp-1">
+                        <span className="font-medium text-slate-900 line-clamp-1">
                           {finding.title}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                      <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
                         {finding.riskExplanation}
                       </div>
                     </td>
 
                     {/* Heuristic Confidence & Deduplicated Source Count */}
-                    <td className="py-3 whitespace-nowrap">
+                    <td className="py-3.5 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span
-                          className="font-mono text-slate-200 font-medium text-xs"
+                          className="font-mono text-slate-900 font-medium text-xs"
                           title="Rule-based heuristic score (not a statistical probability)"
                         >
-                          {(finding.confidence * 100).toFixed(0)}% <span className="text-[10px] text-slate-500 font-sans">heuristic</span>
+                          {(finding.confidence * 100).toFixed(0)}% <span className="text-[10px] text-slate-400 font-sans">heuristic</span>
                         </span>
                         <span
-                          className="rounded bg-slate-800 px-1.5 py-0.2 text-[10px] text-slate-400 font-mono"
+                          className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 font-mono border border-slate-200"
                           title="Deduplicated independent original sources"
                         >
                           {finding.sourceCount} {finding.sourceCount === 1 ? 'src' : 'srcs'}
@@ -516,22 +514,22 @@ export function FindingsTable({
                     </td>
 
                     {/* OSV Lookup State */}
-                    <td className="py-3 whitespace-nowrap">
+                    <td className="py-3.5 whitespace-nowrap">
                       <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
                     </td>
 
                     {/* Details & Actions */}
-                    <td className="py-3 pr-3 whitespace-nowrap text-right">
+                    <td className="py-3.5 pr-4 whitespace-nowrap text-right">
                       <div className="flex items-center justify-end gap-2">
                         {/* Status Toggle */}
                         <button
                           onClick={(e) => handleToggleStatus(finding.id, finding.status, e)}
-                          className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase border transition-all ${
+                          className={`rounded-md px-2 py-0.5 text-[9px] font-mono uppercase border transition-all cursor-pointer ${
                             (statusOverrides[finding.id] || finding.status) === 'MITIGATED'
-                              ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50 font-bold'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
                               : (statusOverrides[finding.id] || finding.status) === 'INVESTIGATING'
-                              ? 'bg-amber-950/50 text-amber-300 border-amber-800/50'
-                              : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:text-slate-900'
                           }`}
                           title="Click to toggle status (OPEN -> INVESTIGATING -> MITIGATED)"
                         >
@@ -541,13 +539,13 @@ export function FindingsTable({
                         {/* Quick Copy Fix */}
                         <button
                           onClick={(e) => handleCopyFix(finding, e)}
-                          className="inline-flex items-center gap-1 rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono text-cyan-300 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-800 transition-colors"
+                          className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-mono text-slate-700 border border-slate-200 hover:border-blue-300 hover:text-blue-700 transition-colors shadow-xs cursor-pointer"
                           title={finding.fixedVersion ? `Copy: npm install ${finding.packageName}@${finding.fixedVersion}` : 'Copy: npm audit fix'}
                         >
                           {copiedId === finding.id ? (
                             <>
-                              <Check className="h-2.5 w-2.5 text-emerald-400" />
-                              <span className="text-emerald-400 font-semibold">Copied!</span>
+                              <Check className="h-2.5 w-2.5 text-emerald-600" />
+                              <span className="text-emerald-700 font-semibold">Copied!</span>
                             </>
                           ) : (
                             <>
@@ -563,7 +561,7 @@ export function FindingsTable({
                             e.stopPropagation();
                             onSelectFinding(finding);
                           }}
-                          className="inline-flex items-center gap-1 text-xs text-slate-400 group-hover:text-cyan-400 transition-colors pl-1"
+                          className="inline-flex items-center gap-1 text-xs text-slate-500 group-hover:text-blue-600 font-medium transition-colors pl-1 cursor-pointer"
                         >
                           <span>Evidence</span>
                           <ChevronRight className="h-3.5 w-3.5" />
@@ -579,9 +577,9 @@ export function FindingsTable({
       </div>
 
       {/* Helpful Hint & Severity Policy Explanation */}
-      <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 gap-2 border-t border-slate-800/60 pt-2.5">
+      <div className="mt-3.5 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 gap-2 border-t border-slate-100 pt-3">
         <span>
-          <strong className="text-slate-400">Severity Policy:</strong> Single independent sources cannot exceed WATCH. Higher severity requires confirmed package/version relevance and independent original corroboration — not raw domain counts.
+          <strong className="text-slate-700">Severity Policy:</strong> Single independent sources cannot exceed WATCH. Higher severity requires confirmed package/version relevance and independent original corroboration — not raw domain counts.
         </span>
         <span className="font-mono text-[10px] text-slate-400 flex-shrink-0">
           Catalog: {findings.length} findings

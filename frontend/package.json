@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test tests/workflow.test.ts"
+    "test": "npx tsx --test tests/workflow.test.ts tests/incident.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",

@@ -27,6 +27,7 @@ export interface ParsedDependency {
   direct: boolean;
   depPath: string[];
   analyzed: boolean; // True if prioritized in top <=4 deep investigation scope
+  hasInstallScript?: boolean; // True if package declares preinstall/install/postinstall hooks
 }
 
 export interface LockfileParsedSummary {

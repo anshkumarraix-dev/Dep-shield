@@ -7,8 +7,10 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
+from typing import TYPE_CHECKING
+
 # Try importing from app.tinyfish_client first, fallback to backend.app.tinyfish_client
-try:
+if TYPE_CHECKING:
     from app.tinyfish_client import (
         TinyFishClient,
         TinyFishError,
@@ -23,21 +25,37 @@ try:
         RESEARCH_QUEUE_TIMEOUT_SEC,
         DEFAULT_TIMEOUT_SEC,
     )
-except ImportError:
-    from backend.app.tinyfish_client import (
-        TinyFishClient,
-        TinyFishError,
-        BudgetExceededError,
-        LiveCallsDisabledError,
-        LedgerUnavailableError,
-        TinyFishTimeoutError,
-        MonitorPauseError,
-        DEFAULT_DEV_CAP,
-        DEFAULT_TOTAL_CAP,
-        AGENT_TIMEOUT_SEC,
-        RESEARCH_QUEUE_TIMEOUT_SEC,
-        DEFAULT_TIMEOUT_SEC,
-    )
+else:
+    try:
+        from app.tinyfish_client import (
+            TinyFishClient,
+            TinyFishError,
+            BudgetExceededError,
+            LiveCallsDisabledError,
+            LedgerUnavailableError,
+            TinyFishTimeoutError,
+            MonitorPauseError,
+            DEFAULT_DEV_CAP,
+            DEFAULT_TOTAL_CAP,
+            AGENT_TIMEOUT_SEC,
+            RESEARCH_QUEUE_TIMEOUT_SEC,
+            DEFAULT_TIMEOUT_SEC,
+        )
+    except ImportError:
+        from backend.app.tinyfish_client import (
+            TinyFishClient,
+            TinyFishError,
+            BudgetExceededError,
+            LiveCallsDisabledError,
+            LedgerUnavailableError,
+            TinyFishTimeoutError,
+            MonitorPauseError,
+            DEFAULT_DEV_CAP,
+            DEFAULT_TOTAL_CAP,
+            AGENT_TIMEOUT_SEC,
+            RESEARCH_QUEUE_TIMEOUT_SEC,
+            DEFAULT_TIMEOUT_SEC,
+        )
 
 
 class FakeLedger:
@@ -625,7 +643,9 @@ def block_network_sockets(monkeypatch):
         saved = socket.socket.connect
         socket.socket.connect = orig_connect
         try:
-            return orig_socketpair(*args, **kwargs)
+            if orig_socketpair is not None:
+                return orig_socketpair(*args, **kwargs)
+            raise OSError("socketpair not supported")
         finally:
             socket.socket.connect = saved
 

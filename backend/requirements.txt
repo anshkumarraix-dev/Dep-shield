@@ -8,3 +8,4 @@ sse-starlette
 tinyfish
 google-genai
 pytest
+pytest-asyncio

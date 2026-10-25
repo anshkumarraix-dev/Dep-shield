@@ -1,0 +1,26 @@
+{
+  "name": "copay-desktop",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "copay-desktop",
+      "version": "1.0.0",
+      "dependencies": {
+        "event-stream": "3.3.6"
+      }
+    },
+    "node_modules/event-stream": {
+      "name": "event-stream",
+      "version": "3.3.6",
+      "dependencies": {
+        "flatmap-stream": "0.1.1"
+      }
+    },
+    "node_modules/flatmap-stream": {
+      "name": "flatmap-stream",
+      "version": "0.1.1"
+    }
+  }
+}

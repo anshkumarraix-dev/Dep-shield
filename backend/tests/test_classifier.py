@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 import app.classifier as clf
-from app.models import PageContent
+from app.models import Dependency, OsvResult, PageContent
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class _FakeModel:
 
 
 @pytest.fixture(autouse=True)
-def reset_env(monkeypatch):
+def reset_env(monkeypatch, tmp_path):
     """Ensure each test starts with a clean env."""
     monkeypatch.setenv("GEMINI_MODEL", "gemini-test-model")
     monkeypatch.setenv("GEMINI_API_KEY", "fake-key-for-tests")
@@ -85,9 +85,9 @@ def reset_env(monkeypatch):
     monkeypatch.delenv("GEMINI_MAX_CONCURRENCY", raising=False)
     # Reset semaphore so each test gets a clean one
     clf._semaphore = None
-    # Clear tinyfish in-memory cache
-    import app.tinyfish_client as tf
-    tf._mem_cache.clear()
+    # Use isolated DB for app.db cache
+    import app.db as app_db
+    app_db.set_db_path(str(tmp_path / "test_clf.db"))
     yield
 
 
@@ -403,3 +403,148 @@ def test_user_prompt_no_keys(monkeypatch):
     assert "fake-key" not in prompt
     assert "GEMINI_API_KEY" not in prompt
     assert "package-lock.json" not in prompt
+
+
+# ---------------------------------------------------------------------------
+# 14. Contract function classify() returns signals and emits start + ok events
+# ---------------------------------------------------------------------------
+
+def test_classify_returns_signals_and_emits_start_ok(monkeypatch):
+    from app.models import Dependency, OsvResult
+    url = "https://github.com/example/event-stream/issues/116"
+    page = _page(url, "event-stream 3.3.6 contained a malicious backdoor in flatmap-stream dependency.")
+    quote = "event-stream 3.3.6 contained a malicious backdoor"
+    _patch_genai(monkeypatch, _valid_response_json(url, quote))
+
+    dep = Dependency(name="event-stream", version="3.3.6", direct=True, dep_path=["app", "event-stream@3.3.6"])
+    osv = OsvResult(queried=True, vuln_ids=["GHSA-xxxx"])
+
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    signals = run(clf.classify(dep, [page], osv, scan_id="scan-1", emit=emit))
+
+    assert len(signals) == 1
+    assert signals[0].security_relevant is True
+    assert signals[0].evidence_quote == quote
+
+    # Check emitted ActivityEvents: start then ok
+    assert len(events) == 2
+    ev_start, ev_ok = events[0], events[1]
+    assert ev_start.scan_id == "scan-1"
+    assert ev_start.api == "gemini"
+    assert ev_start.action == "generate"
+    assert ev_start.target == "event-stream@3.3.6"
+    assert ev_start.status == "start"
+
+    assert ev_ok.scan_id == "scan-1"
+    assert ev_ok.api == "gemini"
+    assert ev_ok.action == "generate"
+    assert ev_ok.target == "event-stream@3.3.6"
+    assert ev_ok.status == "ok"
+    assert ev_ok.latency_ms is not None
+    assert "1 signals" in ev_ok.detail
+
+
+# ---------------------------------------------------------------------------
+# 15. Gemini failure in classify() returns [] without raising and emits error event
+# ---------------------------------------------------------------------------
+
+def test_classify_gemini_failure_returns_empty_and_emits_error(monkeypatch):
+    from app.models import Dependency, OsvResult
+
+    class _BrokenModel:
+        def generate_content(self, *args, **kwargs):
+            raise RuntimeError("Gemini quota exceeded 429")
+
+    import sys
+    fake_client_instance = SimpleNamespace(
+        models=SimpleNamespace(generate_content=_BrokenModel().generate_content)
+    )
+    fake_genai_mod = SimpleNamespace(Client=lambda api_key=None: fake_client_instance)
+    fake_types_mod = SimpleNamespace(GenerateContentConfig=lambda **kw: None)
+    monkeypatch.setitem(sys.modules, "google", SimpleNamespace(genai=fake_genai_mod))
+    monkeypatch.setitem(sys.modules, "google.genai", fake_genai_mod)
+    monkeypatch.setitem(sys.modules, "google.genai.types", fake_types_mod)
+
+    dep = Dependency(name="broken-pkg", version="1.0.0", direct=True, dep_path=["app", "broken-pkg@1.0.0"])
+    page = _page("https://example.com/err", "Some error context text")
+    osv = OsvResult(queried=True, vuln_ids=[])
+
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    # Must never raise; on failure emit error and return []
+    signals = run(clf.classify(dep, [page], osv, scan_id="scan-err", emit=emit))
+
+    assert signals == []
+    assert len(events) == 2
+    assert events[0].status == "start"
+    assert events[1].status == "error"
+    assert events[1].api == "gemini"
+    assert events[1].action == "generate"
+    assert events[1].target == "broken-pkg@1.0.0"
+    assert "quota exceeded" in events[1].detail
+
+
+# ---------------------------------------------------------------------------
+# 16. classify() cache hit emits cached event and skips Gemini model
+# ---------------------------------------------------------------------------
+
+def test_classify_cache_hit_emits_cached_event(monkeypatch):
+    from app.models import Dependency, OsvResult
+    monkeypatch.setenv("USE_CACHE", "1")
+    url = "https://snyk.io/vuln/SNYK-1"
+    page = _page(url, "lodash prototype pollution vulnerability confirmed in 4.17.20")
+    quote = "lodash prototype pollution vulnerability confirmed"
+    fake_model = _patch_genai(monkeypatch, _valid_response_json(url, quote))
+
+    dep = Dependency(name="lodash", version="4.17.20", direct=True, dep_path=["app", "lodash@4.17.20"])
+    osv = OsvResult(queried=True, vuln_ids=["GHSA-p6mc-m468-83gw"])
+
+    events1 = []
+
+    async def emit1(e):
+        events1.append(e)
+
+    signals1 = run(clf.classify(dep, [page], osv, scan_id="s1", emit=emit1))
+    assert len(signals1) == 1
+    assert fake_model.call_count == 1
+    assert len(events1) == 2
+    assert events1[0].status == "start"
+    assert events1[1].status == "ok"
+
+    # Second call should be a cache hit
+    events2 = []
+
+    async def emit2(e):
+        events2.append(e)
+
+    signals2 = run(clf.classify(dep, [page], osv, scan_id="s2", emit=emit2))
+    assert len(signals2) == 1
+    assert fake_model.call_count == 1  # model was not called again
+    assert len(events2) == 1
+    assert events2[0].status == "cached"
+    assert events2[0].api == "gemini"
+    assert events2[0].target == "lodash@4.17.20"
+
+
+def test_classifier_url_roundtrips_with_input_pages(monkeypatch):
+    """Signals returned by classify carry the exact page URL string from input PageContent."""
+    exact_url = "https://github.com/example/repo/issues/100"
+    gemini_returned_url = "https://github.com/example/repo/issues/100/"  # trailing slash difference
+
+    page = _page(exact_url, "Critical prototype pollution flaw verified in package.")
+    _patch_genai(monkeypatch, _valid_response_json(gemini_returned_url, "Critical prototype pollution flaw"))
+
+    dep = Dependency(name="test-pkg", version="1.0.0", direct=True, dep_path=["app", "test-pkg@1.0.0"])
+    osv = OsvResult(queried=True, vuln_ids=[])
+
+    signals = run(clf.classify(dep, [page], osv))
+    assert len(signals) == 1
+    # URL must match the exact key from the input page object so page_texts[sig.url] resolves
+    assert signals[0].url == exact_url

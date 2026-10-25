@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   SecurityFinding,
   RiskLevel,
@@ -26,6 +26,7 @@ interface FindingsTableProps {
   findings: SecurityFinding[];
   onSelectFinding: (finding: SecurityFinding) => void;
   selectedFindingId?: string;
+  initialRiskFilter?: RiskLevel | 'ALL';
 }
 
 export function RiskBadge({ level }: { level: RiskLevel }) {
@@ -59,7 +60,8 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
     },
   };
 
-  const style = styles[level] || styles.INFO;
+  const config = styles[level] || styles.INFO;
+  const Icon = config.icon;
 
   return (
     <span
@@ -84,30 +86,30 @@ export function OsvBadge({
 
   const styles: Record<OsvLookupState, { bg: string; text: string; border: string; label: string; tooltip: string }> = {
     MATCHED: {
-      bg: 'bg-rose-950/40',
-      text: 'text-rose-300 font-semibold',
-      border: 'border-rose-800/50',
+      bg: 'bg-rose-50',
+      text: 'text-rose-700 font-semibold',
+      border: 'border-rose-200',
       label: 'OSV Matched',
       tooltip: 'Confirmed CVE match in OSV database (in_osv: true)',
     },
     CLEAN: {
-      bg: 'bg-emerald-950/40',
-      text: 'text-emerald-300 font-semibold',
-      border: 'border-emerald-800/50',
+      bg: 'bg-emerald-50',
+      text: 'text-emerald-700 font-semibold',
+      border: 'border-emerald-200',
       label: 'OSV Clean',
       tooltip: 'Explicitly checked in OSV with 0 advisories (in_osv: false)',
     },
     PROVISIONAL: {
-      bg: 'bg-amber-950/40',
-      text: 'text-amber-300 font-medium',
-      border: 'border-amber-800/50',
+      bg: 'bg-amber-50',
+      text: 'text-amber-800 font-medium',
+      border: 'border-amber-200',
       label: 'OSV Unchecked',
       tooltip: 'OSV lookup not performed / heuristic only (in_osv: null)',
     },
     UNKNOWN: {
-      bg: 'bg-slate-900',
-      text: 'text-slate-400',
-      border: 'border-slate-800',
+      bg: 'bg-slate-100',
+      text: 'text-slate-600',
+      border: 'border-slate-200',
       label: 'Unchecked',
       tooltip: 'Status unverified',
     },
@@ -118,7 +120,7 @@ export function OsvBadge({
   return (
     <span
       title={current.tooltip}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-mono border ${current.bg} ${current.text} ${current.border}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono border ${current.bg} ${current.text} ${current.border}`}
     >
       <Database className="h-2.5 w-2.5 flex-shrink-0" />
       <span>{current.label}</span>
@@ -126,19 +128,86 @@ export function OsvBadge({
   );
 }
 
+const SEVERITY_ORDER: Record<RiskLevel, number> = {
+  CRITICAL: 4,
+  HIGH: 3,
+  WATCH: 2,
+  INFO: 1,
+};
+
 export function FindingsTable({
   findings,
   onSelectFinding,
   selectedFindingId,
+  initialRiskFilter = 'ALL',
 }: FindingsTableProps) {
-  const [selectedRisk, setSelectedRisk] = useState<RiskLevel | 'ALL'>('ALL');
+  const [selectedRisk, setSelectedRisk] = useState<RiskLevel | 'ALL'>(initialRiskFilter);
   const [selectedDepType, setSelectedDepType] = useState<DependencyType | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'severity' | 'package'>('severity');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
 
   const riskFilters: (RiskLevel | 'ALL')[] = ['ALL', 'CRITICAL', 'HIGH', 'WATCH', 'INFO'];
 
-  const filteredFindings = useMemo(() => {
-    return findings.filter((f) => {
+  const handleCopyFix = (finding: SecurityFinding, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cmd = finding.fixedVersion
+      ? `npm install ${finding.packageName}@${finding.fixedVersion}`
+      : `npm audit fix`;
+    navigator.clipboard.writeText(cmd);
+    setCopiedId(finding.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleToggleStatus = (findingId: string, currentStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cycle: Record<string, string> = {
+      OPEN: 'INVESTIGATING',
+      INVESTIGATING: 'MITIGATED',
+      MITIGATED: 'OPEN',
+    };
+    const nextStatus = cycle[statusOverrides[findingId] || currentStatus] || 'OPEN';
+    setStatusOverrides((prev) => ({ ...prev, [findingId]: nextStatus }));
+  };
+
+  const handleExportReport = () => {
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      reportVersion: '1.0.0',
+      provenance: 'DepShield Supply Chain Threat Intelligence Console (Demo Mode)',
+      findingsCount: filteredFindings.length,
+      findings: filteredFindings.map((f) => ({
+        id: f.id,
+        title: f.title,
+        packageName: f.packageName,
+        installedVersion: f.installedVersion,
+        fixedVersion: f.fixedVersion,
+        riskLevel: f.riskLevel,
+        status: statusOverrides[f.id] || f.status,
+        signalCategory: f.signalCategory,
+        deterministicRule: f.deterministicRuleApplied,
+        confidence: f.confidence,
+        osvMatch: f.in_osv,
+        remediationAction: f.recommendedAction || f.remediationGuidance,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `depshield-threat-report-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const filteredFindings = findings
+    .filter((f) => {
       // Risk filter
       if (selectedRisk !== 'ALL' && f.riskLevel !== selectedRisk) {
         return false;
@@ -147,18 +216,34 @@ export function FindingsTable({
       if (selectedDepType !== 'ALL' && f.dependencyType !== selectedDepType) {
         return false;
       }
-      // Search query
+      // Search query across package name, version, title, category, advisory
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const matchesPackage = f.packageName.toLowerCase().includes(query);
+        const matchesVersion = f.installedVersion.toLowerCase().includes(query);
         const matchesTitle = f.title.toLowerCase().includes(query);
+        const matchesCategory = (f.signalCategory || '').toLowerCase().includes(query);
         const matchesAdvisory = f.advisoryId?.toLowerCase().includes(query) || false;
         const matchesExplanation = f.riskExplanation.toLowerCase().includes(query);
-        return matchesPackage || matchesTitle || matchesAdvisory || matchesExplanation;
+        return (
+          matchesPackage ||
+          matchesVersion ||
+          matchesTitle ||
+          matchesCategory ||
+          matchesAdvisory ||
+          matchesExplanation
+        );
       }
       return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'severity') {
+        const diff = SEVERITY_ORDER[b.riskLevel] - SEVERITY_ORDER[a.riskLevel];
+        if (diff !== 0) return diff;
+        return a.packageName.localeCompare(b.packageName);
+      }
+      return a.packageName.localeCompare(b.packageName);
     });
-  }, [findings, selectedRisk, selectedDepType, searchQuery]);
 
   return (
     <div className="rounded-xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-5 shadow-sm">
@@ -194,7 +279,7 @@ export function FindingsTable({
             <button
               key={risk}
               onClick={() => setSelectedRisk(risk)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                 selectedRisk === risk
                   ? 'bg-[#3C3C42] text-[#EFEFF0] border border-[#3C3C42]'
                   : 'bg-[#010101]/60 text-[#BDBDC1] border border-[#3C3C42]/40 hover:bg-[#3C3C42]/30 hover:text-[#EFEFF0]'
@@ -205,13 +290,41 @@ export function FindingsTable({
           ))}
         </div>
 
-        {/* Secondary controls: Dep Type Toggle & Search */}
-        <div className="flex items-center gap-2">
+        {/* Secondary controls: Dep Type Toggle, Sort & Search */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sort Control */}
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+            <span className="px-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
+              <ArrowUpDown className="h-3 w-3 text-slate-400" />
+              Sort:
+            </span>
+            <button
+              onClick={() => setSortBy('severity')}
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                sortBy === 'severity'
+                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Severity
+            </button>
+            <button
+              onClick={() => setSortBy('package')}
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                sortBy === 'package'
+                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Name (A-Z)
+            </button>
+          </div>
+
           {/* Direct / Transitive Toggle */}
           <div className="flex items-center rounded-lg border border-[#3C3C42]/50 bg-[#010101]/80 p-0.5 text-xs">
             <button
               onClick={() => setSelectedDepType('ALL')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'ALL'
                   ? 'bg-[#3C3C42] text-[#EFEFF0]'
                   : 'text-[#BDBDC1] hover:text-[#EFEFF0]'
@@ -221,7 +334,7 @@ export function FindingsTable({
             </button>
             <button
               onClick={() => setSelectedDepType('direct')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'direct'
                   ? 'bg-[#3C3C42] text-[#EFEFF0]'
                   : 'text-[#BDBDC1] hover:text-[#EFEFF0]'
@@ -231,7 +344,7 @@ export function FindingsTable({
             </button>
             <button
               onClick={() => setSelectedDepType('transitive')}
-              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'transitive'
                   ? 'bg-[#3C3C42] text-[#EFEFF0]'
                   : 'text-[#BDBDC1] hover:text-[#EFEFF0]'
@@ -281,7 +394,7 @@ export function FindingsTable({
                 Heuristic Confidence & Sources
               </th>
               <th className="py-3">OSV State</th>
-              <th className="py-3 pr-3 text-right">Details</th>
+              <th className="py-3 pr-4 text-right">Details</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#3C3C42]/30">
@@ -318,7 +431,7 @@ export function FindingsTable({
                     }`}
                   >
                     {/* Risk Level Badge */}
-                    <td className="py-3 pl-3 whitespace-nowrap">
+                    <td className="py-3.5 pl-4 whitespace-nowrap">
                       <RiskBadge level={finding.riskLevel} />
                     </td>
 
@@ -356,7 +469,7 @@ export function FindingsTable({
                     </td>
 
                     {/* Heuristic Confidence & Deduplicated Source Count */}
-                    <td className="py-3 whitespace-nowrap">
+                    <td className="py-3.5 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span
                           className="font-mono text-[#EFEFF0] font-medium text-xs"
@@ -374,7 +487,7 @@ export function FindingsTable({
                     </td>
 
                     {/* OSV Lookup State */}
-                    <td className="py-3 whitespace-nowrap">
+                    <td className="py-3.5 whitespace-nowrap">
                       <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
                     </td>
 

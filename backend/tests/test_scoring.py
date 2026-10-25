@@ -380,3 +380,301 @@ def test_clean_dependency_returns_none():
     dep = _dep(name="clean-package", version="1.0.0")
     result = build_finding(dep, "scan1", [], [], _osv(ids=[]))
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# 23. Task 3a: Confirmed low + critical unknown must NOT be HIGH or CRITICAL
+# ---------------------------------------------------------------------------
+
+def test_per_signal_evaluation_confirmed_low_and_critical_unknown_not_high_or_critical():
+    """3a: Signal A: version confirmed, severity low.
+    Signal B (different source): severity critical, version unknown.
+    Must NOT be HIGH or CRITICAL; fields must not be cross-combined.
+    """
+    dep = _dep()
+    sig_a = _sig(
+        url="https://domain-a.com/vuln",
+        version_match="confirmed",
+        severity="low",
+        is_original=True,
+    )
+    sig_b = _sig(
+        url="https://domain-b.com/vuln",
+        version_match="unknown",
+        severity="critical",
+        is_original=True,
+    )
+    finding = build_finding(
+        dep, "scan1", [sig_a, sig_b],
+        [_src("https://domain-a.com/vuln"), _src("https://domain-b.com/vuln")],
+        _osv(),
+    )
+    assert finding is not None
+    assert finding.status not in ("HIGH", "CRITICAL")
+    assert finding.status == "WATCH"
+    # Proves severity and version_match are not cross-combined to critical+confirmed
+    assert not (finding.severity == "critical" and finding.version_match == "confirmed")
+
+
+# ---------------------------------------------------------------------------
+# 24. Task 3b: Two independent original reports, high + confirmed + verified -> HIGH
+# ---------------------------------------------------------------------------
+
+def test_two_independent_reports_high_confirmed_verified_yields_high():
+    """3b: Two independent original reports, each high severity + confirmed version + verified quote -> HIGH."""
+    dep = _dep()
+    quote_a = "vulnerability in version 4.17.20 allows remote code execution"
+    quote_b = "confirmed flaw in 4.17.20 discovered by researchers"
+    page_a = f"Security Advisory: {quote_a} under specific conditions."
+    page_b = f"Report: {quote_b} affecting multiple applications."
+    sig_a = _sig(
+        url="https://domain-a.com/advisory",
+        severity="high",
+        version_match="confirmed",
+        evidence_quote=quote_a,
+        is_original=True,
+    )
+    sig_b = _sig(
+        url="https://domain-b.com/report",
+        severity="high",
+        version_match="confirmed",
+        evidence_quote=quote_b,
+        is_original=True,
+    )
+    page_texts = {
+        sig_a.url: page_a,
+        sig_b.url: page_b,
+    }
+    finding = build_finding(
+        dep, "scan1", [sig_a, sig_b],
+        [_src(sig_a.url), _src(sig_b.url)],
+        _osv(),
+        page_texts=page_texts,
+        strict_quotes=True,
+    )
+    assert finding is not None
+    assert finding.status == "HIGH"
+    assert finding.independent_sources == 2
+
+
+# ---------------------------------------------------------------------------
+# 25. Task 3c: strict_quotes=True and one quote missing -> capped at WATCH
+# ---------------------------------------------------------------------------
+
+def test_strict_quotes_one_quote_missing_capped_at_watch():
+    """3c: strict_quotes=True and one of those two quotes is not in the page text -> capped at WATCH."""
+    dep = _dep()
+    quote_a = "vulnerability in version 4.17.20 allows remote code execution"
+    quote_b = "confirmed flaw in 4.17.20 discovered by researchers"
+    page_a = f"Security Advisory: {quote_a} under specific conditions."
+    page_b = "Completely unrelated text without the quote."
+    sig_a = _sig(
+        url="https://domain-a.com/advisory",
+        severity="high",
+        version_match="confirmed",
+        evidence_quote=quote_a,
+        is_original=True,
+    )
+    sig_b = _sig(
+        url="https://domain-b.com/report",
+        severity="high",
+        version_match="confirmed",
+        evidence_quote=quote_b,
+        is_original=True,
+    )
+    page_texts = {
+        sig_a.url: page_a,
+        sig_b.url: page_b,
+    }
+    finding = build_finding(
+        dep, "scan1", [sig_a, sig_b],
+        [_src(sig_a.url), _src(sig_b.url)],
+        _osv(),
+        page_texts=page_texts,
+        strict_quotes=True,
+    )
+    assert finding is not None
+    assert finding.status == "WATCH"
+
+
+# ---------------------------------------------------------------------------
+# 26. Task 3d: strict_quotes=True with page_texts=None -> never above WATCH
+# ---------------------------------------------------------------------------
+
+def test_strict_quotes_page_texts_none_never_above_watch():
+    """3d: strict_quotes=True with page_texts=None -> never above WATCH."""
+    dep = _dep()
+    sig_a = _sig(
+        url="https://domain-a.com/advisory",
+        severity="critical",
+        version_match="confirmed",
+        evidence_quote="critical remote code execution vulnerability found",
+        is_original=True,
+    )
+    sig_b = _sig(
+        url="https://domain-b.com/report",
+        severity="critical",
+        version_match="confirmed",
+        evidence_quote="critical remote code execution vulnerability confirmed",
+        is_original=True,
+    )
+    finding = build_finding(
+        dep, "scan1", [sig_a, sig_b],
+        [_src(sig_a.url), _src(sig_b.url)],
+        _osv(),
+        page_texts=None,
+        strict_quotes=True,
+    )
+    assert finding is not None
+    assert finding.status not in ("HIGH", "CRITICAL")
+    assert finding.status == "WATCH"
+
+
+# ---------------------------------------------------------------------------
+# 27. Task 3e: Two copies of one report -> one independent source
+# ---------------------------------------------------------------------------
+
+def test_two_copies_of_one_report_one_independent_source():
+    """3e: Two copies of one report (is_original_report False, or the same domain) -> one independent source."""
+    dep = _dep()
+    # Case 1: is_original_report=False on domain B (repost)
+    sig_orig = _sig(url="https://domain-a.com/advisory", is_original=True, severity="high", version_match="confirmed")
+    sig_repost = _sig(url="https://domain-b.com/repost", is_original=False, severity="high", version_match="confirmed")
+    f1 = build_finding(dep, "scan1", [sig_orig, sig_repost], [_src(sig_orig.url), _src(sig_repost.url)], _osv())
+    assert f1 is not None
+    assert f1.independent_sources == 1
+    assert f1.status == "WATCH"
+
+    # Case 2: same domain
+    sig_dom1 = _sig(url="https://sub1.snyk.io/vuln1", is_original=True, severity="high", version_match="confirmed")
+    sig_dom2 = _sig(url="https://sub2.snyk.io/vuln2", is_original=True, severity="high", version_match="confirmed")
+    f2 = build_finding(dep, "scan1", [sig_dom1, sig_dom2], [_src(sig_dom1.url), _src(sig_dom2.url)], _osv())
+    assert f2 is not None
+    assert f2.independent_sources == 1
+    assert f2.status == "WATCH"
+
+
+# ---------------------------------------------------------------------------
+# 28. Task 3f: Conflicting not_affected vs confirmed -> WATCH with conflict note
+# ---------------------------------------------------------------------------
+
+def test_conflicting_not_affected_vs_confirmed_caps_at_watch():
+    """3f: Conflicting not_affected vs confirmed -> WATCH with a conflict note."""
+    dep = _dep()
+    sig_confirmed = _sig(
+        url="https://domain-a.com/report1",
+        version_match="confirmed",
+        severity="high",
+        is_original=True,
+    )
+    sig_not_affected = _sig(
+        url="https://domain-b.com/report2",
+        version_match="not_affected",
+        severity="high",
+        is_original=True,
+    )
+    finding = build_finding(
+        dep, "scan1", [sig_confirmed, sig_not_affected],
+        [_src(sig_confirmed.url), _src(sig_not_affected.url)],
+        _osv(),
+    )
+    assert finding is not None
+    assert finding.status == "WATCH"
+    assert "conflicting reports" in finding.reasoning.lower()
+
+
+# ---------------------------------------------------------------------------
+# 29. Task 3g: Overlong quote (>25 words) and empty quote are unverified
+# ---------------------------------------------------------------------------
+
+def test_overlong_quote_and_empty_quote_unverified_in_strict_mode():
+    """3g: Overlong quote (more than 25 words) and empty quote are unverified."""
+    dep = _dep()
+    overlong_quote = " ".join([f"word{i}" for i in range(26)])
+    page_text = f"prefix {overlong_quote} suffix"
+    sig_long = _sig(
+        url="https://domain-a.com/vuln",
+        evidence_quote=overlong_quote,
+        severity="high",
+        version_match="confirmed",
+        is_original=True,
+    )
+    sig_empty = _sig(
+        url="https://domain-b.com/vuln",
+        evidence_quote="",
+        severity="high",
+        version_match="confirmed",
+        is_original=True,
+    )
+    page_texts = {
+        sig_long.url: page_text,
+        sig_empty.url: "some text",
+    }
+    finding = build_finding(
+        dep, "scan1", [sig_long, sig_empty],
+        [_src(sig_long.url), _src(sig_empty.url)],
+        _osv(),
+        page_texts=page_texts,
+        strict_quotes=True,
+    )
+    assert finding is not None
+    assert finding.status == "WATCH"
+    for s in finding.signals:
+        assert s.evidence_quote == ""
+
+
+# ---------------------------------------------------------------------------
+# 30. Task 3h: Failed OSV lookup -> in_osv is None (never False)
+# ---------------------------------------------------------------------------
+
+def test_failed_osv_lookup_in_osv_is_none():
+    """3h: Failed OSV lookup -> in_osv is None (never False)."""
+    dep = _dep()
+    sig = _sig(url="https://domain-a.com/vuln")
+
+    # 1. Error during lookup
+    osv_err = _osv(error="Network connection failed")
+    f_err = build_finding(dep, "scan1", [sig], [_src(sig.url)], osv_err)
+    assert f_err is not None
+    assert f_err.in_osv is None
+
+    # 2. Not queried
+    osv_unqueried = OsvResult(queried=False)
+    f_unqueried = build_finding(dep, "scan1", [sig], [_src(sig.url)], osv_unqueried)
+    assert f_unqueried is not None
+    assert f_unqueried.in_osv is None
+
+    # 3. osv is None parameter
+    f_none = build_finding(dep, "scan1", [sig], [_src(sig.url)], None)
+    assert f_none is not None
+    assert f_none.in_osv is None
+
+
+# ---------------------------------------------------------------------------
+# 31. Official advisory + one other independent source -> CRITICAL
+# ---------------------------------------------------------------------------
+
+def test_official_advisory_plus_one_other_source_yields_critical():
+    dep = _dep()
+    sig_adv = _sig(
+        url="https://github.com/advisories/GHSA-1234",
+        severity="critical",
+        version_match="confirmed",
+        is_original=True,
+    )
+    sig_other = _sig(
+        url="https://snyk.io/vuln/SNYK-1234",
+        severity="high",
+        version_match="confirmed",
+        is_original=True,
+    )
+    finding = build_finding(
+        dep, "scan1", [sig_adv, sig_other],
+        [_src(sig_adv.url), _src(sig_other.url)],
+        _osv(),
+    )
+    assert finding is not None
+    assert finding.status == "CRITICAL"
+    assert finding.severity == "critical"
+    assert finding.version_match == "confirmed"
+    assert finding.independent_sources >= 2

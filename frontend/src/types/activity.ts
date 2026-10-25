@@ -8,6 +8,8 @@ export type ActivityActionType =
   | 'search'
   | 'fetch'
   | 'evidence_analysis'
+  | 'scoring'
+  | 'findings'
   | 'system';
 
 export interface ActivityEvent {

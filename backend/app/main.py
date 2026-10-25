@@ -30,9 +30,35 @@ from . import db
 from .config import settings
 from .events import event_bus
 from .models import Scan
-from .orchestrator import run_research, run_scan
+from .orchestrator import _get_pipeline_modules, run_research, run_scan
 
 logger = logging.getLogger(__name__)
+
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
+def _map_tinyfish_exception(exc: Exception) -> HTTPException:
+    cls_name = exc.__class__.__name__
+    if cls_name == "BudgetExceededError" or "BudgetExceeded" in cls_name:
+        return HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"TinyFish budget exceeded: {exc}",
+        )
+    if cls_name == "LiveCallsDisabledError" or "LiveCallsDisabled" in cls_name:
+        return HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Live TinyFish calls disabled: {exc}",
+        )
+    if cls_name == "LedgerUnavailableError" or "LedgerUnavailable" in cls_name:
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Durable ledger unavailable: {exc}",
+        )
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"TinyFish monitor operation failed: {exc}",
+    )
 
 app = FastAPI(
     title="DepShield API",
@@ -82,8 +108,17 @@ def _get_replay_cases() -> list[dict[str, Any]]:
         try:
             with open(eval_cases_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, list) and data:
-                    return data
+                case_list = data if isinstance(data, list) else data.get("cases", [])
+                if isinstance(case_list, list) and case_list:
+                    normalized = []
+                    for c in case_list:
+                        normalized.append({
+                            "id": c.get("id"),
+                            "title": c.get("title") or c.get("label", ""),
+                            "description": c.get("description") or c.get("notes", ""),
+                            "as_of_date": c.get("as_of_date") or c.get("cutoff_date", ""),
+                        })
+                    return normalized
         except (OSError, json.JSONDecodeError) as e:
             logger.warning("Failed to read eval/cases.json: %s", e)
     return DEFAULT_REPLAY_CASES
@@ -115,6 +150,40 @@ def _get_replay_lockfile(case_id: str) -> str:
                 "node_modules/flatmap-stream": {
                     "name": "flatmap-stream",
                     "version": "0.1.1"
+                }
+            }
+        })
+
+    if "ua-parser-js" in case_id:
+        return json.dumps({
+            "name": "ua-app",
+            "version": "1.0.0",
+            "lockfileVersion": 2,
+            "packages": {
+                "": {
+                    "name": "ua-app",
+                    "dependencies": {"ua-parser-js": "0.7.29"}
+                },
+                "node_modules/ua-parser-js": {
+                    "name": "ua-parser-js",
+                    "version": "0.7.29"
+                }
+            }
+        })
+
+    if "colors" in case_id:
+        return json.dumps({
+            "name": "cli-app",
+            "version": "1.0.0",
+            "lockfileVersion": 2,
+            "packages": {
+                "": {
+                    "name": "cli-app",
+                    "dependencies": {"colors": "1.4.1"}
+                },
+                "node_modules/colors": {
+                    "name": "colors",
+                    "version": "1.4.1"
                 }
             }
         })
@@ -176,13 +245,52 @@ async def create_scan_upload(
             detail="Missing filename. Please upload package-lock.json.",
         )
 
-    content_bytes = await lockfile.read()
+    content_bytes = await lockfile.read(MAX_UPLOAD_SIZE + 1)
+    if len(content_bytes) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=getattr(status, "HTTP_413_CONTENT_TOO_LARGE", 413),
+            detail="Uploaded package-lock.json exceeds maximum allowed size of 5 MB.",
+        )
+
+    if not content_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty. Please upload a valid package-lock.json.",
+        )
+
     try:
         lockfile_text = content_bytes.decode("utf-8")
     except UnicodeDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded package-lock.json is not valid UTF-8 text.",
+        )
+
+    try:
+        parsed_json = json.loads(lockfile_text)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded package-lock.json contains invalid JSON: {exc}",
+        )
+
+    if not isinstance(parsed_json, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid package-lock.json: root must be a JSON object.",
+        )
+
+    lf_version = parsed_json.get("lockfileVersion")
+    if lf_version not in (2, 3):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported lockfileVersion {lf_version!r}. DepShield requires lockfileVersion 2 or 3.",
+        )
+
+    if "packages" not in parsed_json or not isinstance(parsed_json["packages"], dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid package-lock.json: missing or invalid 'packages' object.",
         )
 
     scan_id = f"scan_{uuid.uuid4().hex[:12]}"
@@ -193,8 +301,10 @@ async def create_scan_upload(
     )
     db.create_scan(scan)
 
-    # Spawn background pipeline execution
-    asyncio.create_task(run_scan(scan_id, lockfile_text))
+    # Spawn background pipeline execution with strong task reference
+    task = asyncio.create_task(run_scan(scan_id, lockfile_text))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return {"scan_id": scan_id}
 
 
@@ -219,8 +329,10 @@ async def create_replay_scan(case_id: str) -> dict[str, str]:
     )
     db.create_scan(scan)
 
-    # Spawn background scan with date cutoff
-    asyncio.create_task(run_scan(scan_id, lockfile_text, as_of_date=selected_case.get("as_of_date")))
+    # Spawn background scan with date cutoff and strong task reference
+    task = asyncio.create_task(run_scan(scan_id, lockfile_text, as_of_date=selected_case.get("as_of_date")))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return {"scan_id": scan_id}
 
 
@@ -292,20 +404,100 @@ class CreateMonitorRequest(BaseModel):
 
 @app.post("/api/monitors")
 async def create_monitor_endpoint(req: CreateMonitorRequest) -> dict[str, str]:
-    from .stubs import create_topic_monitor
-    monitor_id = await create_topic_monitor(req.package)
-    return {"monitor_id": monitor_id, "status": "created"}
+    if settings.use_stubs:
+        from .stubs import create_topic_monitor
+        monitor_id = await create_topic_monitor(req.package)
+        return {"monitor_id": monitor_id, "status": "created"}
+
+    if not settings.tinyfish_live_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Live monitors are disabled",
+        )
+
+    try:
+        _, tf_mod, _, _ = _get_pipeline_modules()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to load pipeline modules: {exc}",
+        )
+
+    try:
+        monitor_id = await tf_mod.create_topic_monitor(req.package)
+        if not monitor_id:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to create monitor",
+            )
+        return {"monitor_id": monitor_id, "status": "created"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _map_tinyfish_exception(exc) from exc
 
 
 @app.post("/api/monitors/{monitor_id}/run")
 async def run_monitor_endpoint(monitor_id: str) -> dict[str, Any]:
-    from .stubs import run_monitor_now
-    res = await run_monitor_now(monitor_id)
-    return res
+    if settings.use_stubs:
+        from .stubs import run_monitor_now
+        res = await run_monitor_now(monitor_id)
+        return res
+
+    if not settings.tinyfish_live_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Live monitors are disabled",
+        )
+
+    try:
+        _, tf_mod, _, _ = _get_pipeline_modules()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to load pipeline modules: {exc}",
+        )
+
+    try:
+        res = await tf_mod.run_monitor_now(monitor_id)
+        if not res or res.get("status") == "error":
+            err_detail = res.get("error", "Monitor run failed") if isinstance(res, dict) else "Monitor run failed"
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=err_detail,
+            )
+        return res
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _map_tinyfish_exception(exc) from exc
 
 
 @app.post("/api/monitors/{monitor_id}/pause")
 async def pause_monitor_endpoint(monitor_id: str) -> dict[str, Any]:
-    from .stubs import pause_topic_monitor
-    paused = await pause_topic_monitor(monitor_id)
-    return {"monitor_id": monitor_id, "paused": paused}
+    if settings.use_stubs:
+        from .stubs import pause_topic_monitor
+        paused = await pause_topic_monitor(monitor_id)
+        return {"monitor_id": monitor_id, "paused": paused}
+
+    if not settings.tinyfish_live_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Live monitors are disabled",
+        )
+
+    try:
+        _, tf_mod, _, _ = _get_pipeline_modules()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to load pipeline modules: {exc}",
+        )
+
+    try:
+        paused = await tf_mod.pause_topic_monitor(monitor_id)
+        return {"monitor_id": monitor_id, "paused": paused}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _map_tinyfish_exception(exc) from exc

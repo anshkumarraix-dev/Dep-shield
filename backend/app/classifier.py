@@ -26,12 +26,23 @@ import hashlib
 import json
 import logging
 import os
+import time
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from .models import Signal, VersionMatch, Severity
-from .tinyfish_client import cache_get, cache_set
+from .config import settings
+from .db import cache_get, cache_set
+from .models import (
+    ActivityEvent,
+    Dependency,
+    Emit,
+    OsvResult,
+    PageContent,
+    Severity,
+    Signal,
+    VersionMatch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +55,21 @@ _semaphore: Optional[asyncio.Semaphore] = None
 
 def _get_semaphore() -> asyncio.Semaphore:
     global _semaphore
-    n = int(os.getenv("GEMINI_MAX_CONCURRENCY", "3"))
+    env_val = os.getenv("GEMINI_MAX_CONCURRENCY")
+    n = int(env_val) if env_val is not None else getattr(settings, "gemini_max_concurrency", 1)
     if _semaphore is None or _semaphore._value != n:  # type: ignore[attr-defined]
         _semaphore = asyncio.Semaphore(n)
     return _semaphore
+
+
+def _get_max_pages() -> int:
+    env_val = os.getenv("GEMINI_MAX_PAGES")
+    return int(env_val) if env_val is not None else getattr(settings, "gemini_max_pages", 5)
+
+
+def _get_page_chars() -> int:
+    env_val = os.getenv("GEMINI_MAX_CHARS_PER_PAGE")
+    return int(env_val) if env_val is not None else getattr(settings, "gemini_max_chars_per_page", 3000)
 
 
 # ---------------------------------------------------------------------------
@@ -172,8 +194,6 @@ def _cache_key(package: str, version: str, pages: list[dict[str, str]]) -> str:
 # Core classification function
 # ---------------------------------------------------------------------------
 
-_MAX_PAGES = 5
-_PAGE_CHARS = 3_000
 _GEMINI_CACHE_TTL = 24 * 3600  # 1 day
 
 
@@ -190,7 +210,7 @@ async def classify_pages(
     ----------
     package   : Package name.
     version   : Exact installed version.
-    pages     : List of PageContent objects (up to MAX_PAGES; extras ignored).
+    pages     : List of PageContent objects (up to GEMINI_MAX_PAGES; extras ignored).
     ecosystem : e.g. "npm" or "PyPI".
 
     Returns
@@ -205,11 +225,13 @@ async def classify_pages(
     if not pages:
         return []
 
-    pages = pages[:_MAX_PAGES]
+    max_pages = _get_max_pages()
+    page_chars = _get_page_chars()
+    pages = pages[:max_pages]
 
     # Build page dicts (truncated)
     page_dicts: list[dict[str, str]] = [
-        {"url": p.url, "text": p.text[:_PAGE_CHARS]}
+        {"url": p.url, "text": p.text[:page_chars]}
         for p in pages
     ]
 
@@ -235,6 +257,24 @@ async def classify_pages(
     async with sem:
         result_signals = await _call_gemini(model_name, user_prompt)
 
+    # --- Reconcile signal URLs to exact input page URLs --------------------
+    url_lookup = {}
+    for p in pages:
+        url_lookup[p.url] = p.url
+        url_lookup[p.url.rstrip("/")] = p.url
+        url_lookup[p.url.rstrip("/") + "/"] = p.url
+        url_lookup[p.url.lower()] = p.url
+        url_lookup[p.url.lower().rstrip("/")] = p.url
+        url_lookup[p.url.lower().rstrip("/") + "/"] = p.url
+
+    aligned: list[Signal] = []
+    for s in result_signals:
+        matched = url_lookup.get(s.url)
+        if matched and matched != s.url:
+            s = s.model_copy(update={"url": matched})
+        aligned.append(s)
+    result_signals = aligned
+
     # --- Cache result -------------------------------------------------------
     if os.getenv("USE_CACHE", "1") == "1":
         payload = _ClassifierResponse(
@@ -243,6 +283,127 @@ async def classify_pages(
         cache_set(ck, payload, _GEMINI_CACHE_TTL)
 
     return result_signals
+
+
+async def classify(
+    dep: Dependency,
+    pages: list[PageContent],
+    osv: OsvResult,
+    *,
+    scan_id: Optional[str] = None,
+    emit: Optional[Emit] = None,
+) -> list[Signal]:
+    """Extract security signals from pages for a dependency using Gemini.
+
+    Contract from AGENTS.md:
+    classify(dep: Dependency, pages: list[PageContent], osv: OsvResult, *,
+             scan_id: str | None = None, emit: Emit | None = None) -> list[Signal]
+
+    Emits ActivityEvent(api="gemini", action="generate", ...) with status start,
+    then ok/error, or 'cached' on a cache hit.
+    Calls classify_pages(dep.name, dep.version, pages, ecosystem=dep.ecosystem).
+    Never raises; on failure emits error and returns [].
+    """
+    target = f"{dep.name}@{dep.version}"
+    start_time = time.perf_counter()
+
+    if not pages:
+        return []
+
+    # Check cache first for cache-hit ActivityEvent
+    max_pages = _get_max_pages()
+    page_chars = _get_page_chars()
+    page_dicts = [
+        {"url": p.url, "text": p.text[:page_chars]}
+        for p in pages[:max_pages]
+    ]
+    ck = _cache_key(dep.name, dep.version, page_dicts)
+
+    if os.getenv("USE_CACHE", "1") == "1":
+        cached = cache_get(ck)
+        if cached is not None:
+            try:
+                resp = _ClassifierResponse.model_validate(cached)
+                raw_signals = [_to_signal(r) for r in resp.signals]
+                url_lookup = {}
+                for p in pages:
+                    url_lookup[p.url] = p.url
+                    url_lookup[p.url.rstrip("/")] = p.url
+                    url_lookup[p.url.rstrip("/") + "/"] = p.url
+                    url_lookup[p.url.lower()] = p.url
+                    url_lookup[p.url.lower().rstrip("/")] = p.url
+                    url_lookup[p.url.lower().rstrip("/") + "/"] = p.url
+                signals = [
+                    s.model_copy(update={"url": url_lookup.get(s.url, s.url)})
+                    for s in raw_signals
+                ]
+                if emit:
+                    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+                    await emit(
+                        ActivityEvent(
+                            scan_id=scan_id,
+                            api="gemini",
+                            action="generate",
+                            target=target,
+                            status="cached",
+                            latency_ms=elapsed_ms,
+                            detail=f"Retrieved {len(signals)} signals from cache",
+                        )
+                    )
+                return signals
+            except ValidationError:
+                pass  # Stale/corrupt cache; fall through
+
+    # Cache miss: emit start event
+    if emit:
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="gemini",
+                action="generate",
+                target=target,
+                status="start",
+            )
+        )
+
+    try:
+        ecosystem = getattr(dep, "ecosystem", "npm") or "npm"
+        signals = await classify_pages(
+            dep.name,
+            dep.version,
+            pages,
+            ecosystem=ecosystem,
+        )
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="gemini",
+                    action="generate",
+                    target=target,
+                    status="ok",
+                    latency_ms=elapsed_ms,
+                    detail=f"Extracted {len(signals)} signals",
+                )
+            )
+        return signals
+    except Exception as exc:
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        logger.error("classify failed for %s: %s", target, exc)
+        if emit:
+            await emit(
+                ActivityEvent(
+                    scan_id=scan_id,
+                    api="gemini",
+                    action="generate",
+                    target=target,
+                    status="error",
+                    latency_ms=elapsed_ms,
+                    detail=str(exc)[:300],
+                )
+            )
+        return []
 
 
 def _build_user_prompt(
@@ -302,12 +463,12 @@ async def _call_gemini(model_name: str, user_prompt: str) -> list[Signal]:
             from google.genai import types as gtypes  # type: ignore[import]
     except ImportError:
         logger.error("google-genai package is not installed. Install it with: pip install google-genai")
-        return []
+        raise RuntimeError("google-genai package is not installed")
 
-    api_key = os.getenv("GEMINI_API_KEY", "")
+    api_key = os.getenv("GEMINI_API_KEY", "") or getattr(settings, "gemini_api_key", "")
     if not api_key:
         logger.error("GEMINI_API_KEY is not set.")
-        return []
+        raise RuntimeError("GEMINI_API_KEY is not set.")
 
     try:
         client = genai.Client(api_key=api_key)
@@ -325,7 +486,7 @@ async def _call_gemini(model_name: str, user_prompt: str) -> list[Signal]:
         )
     except Exception as exc:
         logger.error("Gemini call failed: %s", exc)
-        return []
+        raise RuntimeError(f"Gemini call failed: {exc}") from exc
 
     raw_text = ""
     try:

@@ -9,11 +9,12 @@ import {
   Play,
   RotateCcw,
   Sparkles,
-  ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import {
   validateAndParsePackageLock,
   SAMPLE_DEMO_PACKAGE_LOCK,
+  SAMPLE_LEGACY_PACKAGE_LOCK,
 } from '@/services/lockfileParser';
 import { LockfileParsedSummary } from '@/types';
 
@@ -79,7 +80,6 @@ export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
 
@@ -101,7 +101,17 @@ export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps
   };
 
   const handleLoadSample = () => {
-    processFileContent(SAMPLE_DEMO_PACKAGE_LOCK, 'sample-package-lock.json', true);
+    processFileContent(SAMPLE_DEMO_PACKAGE_LOCK, 'event-stream-2018.json', true);
+    if (onSelectPreset) {
+      onSelectPreset('event-stream-2018');
+    }
+  };
+
+  const handleLoadUaParserSample = () => {
+    processFileContent(SAMPLE_LEGACY_PACKAGE_LOCK, 'ua-parser-js-2021.json', true);
+    if (onSelectPreset) {
+      onSelectPreset('ua-parser-js-2021');
+    }
   };
 
   const handleClear = () => {
@@ -146,7 +156,7 @@ export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps
         </button>
       </div>
 
-      {/* Main Upload / Drag-and-Drop Area */}
+      {/* Main Upload / Drag & Drop Surface */}
       <div className="mt-5">
         <input
           ref={fileInputRef}
@@ -195,6 +205,9 @@ export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps
                     <span className="text-sm font-semibold text-[#EFEFF0] font-mono">
                       {selectedSummary.fileName}
                     </span>
+                    <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-mono text-blue-700 border border-blue-200 font-semibold shadow-2xs">
+                      v{selectedSummary.lockfileVersion}
+                    </span>
                     {selectedSummary.isSyntheticSample && (
                       <span className="rounded bg-[#3C3C42]/40 px-2 py-0.5 text-[10px] font-mono text-[#BDBDC1] border border-[#3C3C42]/60">
                         Synthetic Demo Sample
@@ -208,38 +221,39 @@ export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps
                         {selectedSummary.projectName}@{selectedSummary.projectVersion}
                       </strong>
                     </span>
+                    <span>&bull;</span>
                     <span>
                       Format:{' '}
                       <strong className="text-[#EFEFF0] font-mono">v{selectedSummary.lockfileVersion}</strong>
                     </span>
+                    <span>&bull;</span>
                     <span>
                       Packages:{' '}
                       <strong className="text-[#EFEFF0]">
                         {selectedSummary.totalPackagesDetected}
                       </strong>{' '}
-                      ({selectedSummary.directDependenciesCount} direct, {selectedSummary.transitiveDependenciesCount} transitive)
+                      transitive
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex items-center gap-2 self-start sm:self-center">
                 <button
                   onClick={handleClear}
                   disabled={isScanning}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-[#3C3C42]/60 bg-[#3C3C42]/20 px-3 py-2 text-xs font-medium text-[#BDBDC1] hover:text-[#EFEFF0] hover:bg-[#3C3C42]/40 transition-colors disabled:opacity-50"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Change File</span>
+                  <RotateCcw className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => onStartScan(selectedSummary)}
                   disabled={isScanning}
                   className="inline-flex items-center gap-2 rounded-lg bg-[#EFEFF0] px-5 py-2 text-xs font-semibold text-[#010101] hover:bg-white transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>{isScanning ? 'Scan Running...' : 'Execute DepShield Scan'}</span>
+                  <Play className={`h-4 w-4 fill-current ${isScanning ? 'animate-spin' : ''}`} />
+                  <span>{isScanning ? 'Analyzing Signals...' : 'Start Threat Investigation'}</span>
                 </button>
               </div>
             </div>
@@ -248,11 +262,9 @@ export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps
 
         {/* Error Notification */}
         {errorMessage && (
-          <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-            <AlertTriangle className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <span className="font-semibold">Validation Error:</span> {errorMessage}
-            </div>
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800 flex items-center gap-2.5 animate-in fade-in">
+            <AlertTriangle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+            <span>{errorMessage}</span>
           </div>
         )}
 

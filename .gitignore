@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+_prompts/
 # python
 __pycache__/
 *.pyc

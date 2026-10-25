@@ -22,37 +22,49 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
       case 'parsing':
         return {
           icon: FileSearch,
-          color: 'text-cyan-400 bg-cyan-950/50 border-cyan-800/60',
+          color: 'text-sky-700 bg-sky-50 border-sky-200',
           label: 'PARSING',
         };
       case 'osv_check':
         return {
           icon: Database,
-          color: 'text-rose-400 bg-rose-950/50 border-rose-800/60',
+          color: 'text-rose-700 bg-rose-50 border-rose-200',
           label: 'OSV CHECK',
         };
       case 'search':
         return {
           icon: Search,
-          color: 'text-amber-400 bg-amber-950/50 border-amber-800/60',
+          color: 'text-amber-800 bg-amber-50 border-amber-200',
           label: 'SEARCH',
         };
       case 'fetch':
         return {
           icon: DownloadCloud,
-          color: 'text-blue-400 bg-blue-950/50 border-blue-800/60',
+          color: 'text-blue-700 bg-blue-50 border-blue-200',
           label: 'FETCH',
         };
       case 'evidence_analysis':
         return {
           icon: ShieldAlert,
-          color: 'text-purple-400 bg-purple-950/50 border-purple-800/60',
-          label: 'ANALYSIS',
+          color: 'text-purple-700 bg-purple-50 border-purple-200',
+          label: 'EVIDENCE',
+        };
+      case 'scoring':
+        return {
+          icon: ShieldAlert,
+          color: 'text-orange-700 bg-orange-50 border-orange-200',
+          label: 'SCORING',
+        };
+      case 'findings':
+        return {
+          icon: ShieldAlert,
+          color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+          label: 'FINDINGS',
         };
       default:
         return {
           icon: Clock,
-          color: 'text-slate-400 bg-slate-900 border-slate-800',
+          color: 'text-slate-600 bg-slate-100 border-slate-200',
           label: 'SYSTEM',
         };
     }
@@ -82,7 +94,7 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
           const Icon = badge.icon;
 
           return (
-            <div key={event.id} className="relative flex gap-3 group">
+            <div key={event.id} className="relative flex gap-3.5 group">
               {/* Timeline connector line */}
               {index < activity.length - 1 && (
                 <span
@@ -93,7 +105,7 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
 
               {/* Action Type Icon */}
               <div
-                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border ${badge.color}`}
+                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border ${badge.color}`}
               >
                 <Icon className="h-4 w-4" />
               </div>

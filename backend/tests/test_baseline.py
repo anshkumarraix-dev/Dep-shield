@@ -8,14 +8,17 @@ import sys
 import types
 from unittest.mock import AsyncMock, MagicMock
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 import httpx
 import pytest
 
 # Try importing from app.baseline first, fallback to backend.app.baseline
-try:
+if TYPE_CHECKING:
     from app.baseline import (
-        osv_lookup,
-        npm_metadata,
+        _osv_lookup as osv_lookup,
+        _npm_metadata as npm_metadata,
+        osv_lookup as contract_osv_lookup,
+        npm_metadata as contract_npm_metadata,
         OsvResult,
         NpmInfo,
         ActivityEvent,
@@ -24,18 +27,35 @@ try:
         _load_models,
         _FallbackNpmInfo,
     )
-except ImportError:
-    from backend.app.baseline import (
-        osv_lookup,
-        npm_metadata,
-        OsvResult,
-        NpmInfo,
-        ActivityEvent,
-        TtlCache,
-        validate_name_and_version,
-        _load_models,
-        _FallbackNpmInfo,
-    )
+else:
+    try:
+        from app.baseline import (
+            _osv_lookup as osv_lookup,
+            _npm_metadata as npm_metadata,
+            osv_lookup as contract_osv_lookup,
+            npm_metadata as contract_npm_metadata,
+            OsvResult,
+            NpmInfo,
+            ActivityEvent,
+            TtlCache,
+            validate_name_and_version,
+            _load_models,
+            _FallbackNpmInfo,
+        )
+    except ImportError:
+        from backend.app.baseline import (
+            _osv_lookup as osv_lookup,
+            _npm_metadata as npm_metadata,
+            osv_lookup as contract_osv_lookup,
+            npm_metadata as contract_npm_metadata,
+            OsvResult,
+            NpmInfo,
+            ActivityEvent,
+            TtlCache,
+            validate_name_and_version,
+            _load_models,
+            _FallbackNpmInfo,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -571,8 +591,8 @@ def test_partial_import_fallback(monkeypatch):
     class CustomSharedActivityEvent:
         event_type: str
 
-    mock_models.OsvResult = CustomSharedOsvResult
-    mock_models.ActivityEvent = CustomSharedActivityEvent
+    setattr(mock_models, "OsvResult", CustomSharedOsvResult)
+    setattr(mock_models, "ActivityEvent", CustomSharedActivityEvent)
     # NpmInfo is intentionally omitted
 
     monkeypatch.setitem(sys.modules, "app.models", mock_models)
@@ -585,3 +605,53 @@ def test_partial_import_fallback(monkeypatch):
     assert loaded_event is CustomSharedActivityEvent
     # NpmInfo fell back to local fallback dataclass
     assert loaded_npm is _FallbackNpmInfo
+
+
+# ---------------------------------------------------------------------------
+# Replay Lockfile Fixture Tests
+# ---------------------------------------------------------------------------
+
+def test_replay_lockfile_fixtures_parse():
+    """Verify replay lockfiles parse cleanly and direct/transitive flags are accurate."""
+    try:
+        from app.parser import parse_lockfile
+    except ImportError:
+        from backend.app.parser import parse_lockfile
+    from pathlib import Path
+
+    fixtures_dir = Path(__file__).resolve().parent.parent / "fixtures" / "lockfiles"
+
+    # 1. event-stream-2018.json
+    es_file = fixtures_dir / "event-stream-2018.json"
+    assert es_file.is_file(), "event-stream-2018.json must exist"
+    deps_es = parse_lockfile(es_file.read_text(encoding="utf-8"))
+    es_map = {d.name: d for d in deps_es}
+    assert "event-stream" in es_map
+    assert es_map["event-stream"].version == "3.3.6"
+    assert es_map["event-stream"].direct is True
+    assert "flatmap-stream" in es_map
+    assert es_map["flatmap-stream"].version == "0.1.1"
+    assert es_map["flatmap-stream"].direct is False
+    assert es_map["flatmap-stream"].dep_path == ["copay-desktop", "event-stream@3.3.6", "flatmap-stream@0.1.1"]
+
+    # 2. ua-parser-js-2021.json
+    ua_file = fixtures_dir / "ua-parser-js-2021.json"
+    assert ua_file.is_file(), "ua-parser-js-2021.json must exist"
+    deps_ua = parse_lockfile(ua_file.read_text(encoding="utf-8"))
+    ua_map = {d.name: d for d in deps_ua}
+    assert "ua-parser-js" in ua_map
+    assert ua_map["ua-parser-js"].version == "0.7.29"
+    assert ua_map["ua-parser-js"].direct is True
+
+    # 3. benign-control-clean.json
+    benign_file = fixtures_dir / "benign-control-clean.json"
+    assert benign_file.is_file(), "benign-control-clean.json must exist"
+    deps_benign = parse_lockfile(benign_file.read_text(encoding="utf-8"))
+    benign_map = {d.name: d for d in deps_benign}
+    assert "express" in benign_map
+    assert benign_map["express"].version == "4.18.2"
+    assert benign_map["express"].direct is True
+    assert "lodash" in benign_map
+    assert benign_map["lodash"].version == "4.17.21"
+    assert benign_map["lodash"].direct is True
+

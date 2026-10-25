@@ -1,32 +1,58 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FileSearch,
-  CheckCircle2,
   Database,
-  ShieldAlert,
+  Search,
+  CheckCircle2,
   BarChart3,
+  ShieldAlert,
   Loader2,
   Terminal,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Package,
 } from 'lucide-react';
 import { ScanProgressState } from '@/types';
 
 interface ScanProgressBarProps {
   progressState: ScanProgressState;
+  onViewFindings?: () => void;
 }
 
-export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
+export function ScanProgressBar({ progressState, onViewFindings }: ScanProgressBarProps) {
+  const [showTerminal, setShowTerminal] = useState(true);
+  const terminalRef = useRef<HTMLDivElement>(null);
+
   const steps = [
     { key: 'parsing', label: '1. Parsing', icon: FileSearch },
-    { key: 'baseline', label: '2. Baseline', icon: CheckCircle2 },
-    { key: 'osv_checks', label: '3. OSV Checks', icon: Database },
-    { key: 'evidence_collection', label: '4. Evidence', icon: ShieldAlert },
-    { key: 'risk_evaluation', label: '5. Risk Synthesis', icon: BarChart3 },
+    { key: 'baseline', label: '2. Baseline', icon: Database },
+    { key: 'signals', label: '3. Signals', icon: Search },
+    { key: 'evidence', label: '4. Evidence', icon: CheckCircle2 },
+    { key: 'scoring', label: '5. Scoring', icon: BarChart3 },
+    { key: 'findings', label: '6. Findings', icon: ShieldAlert },
   ];
 
+  // Auto-scroll terminal to bottom when new logs arrive
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [progressState.logs]);
+
   const getStepStatus = (stepKey: string) => {
-    const stageOrder = ['idle', 'parsing', 'baseline', 'osv_checks', 'evidence_collection', 'risk_evaluation', 'completed'];
+    const stageOrder = [
+      'idle',
+      'parsing',
+      'baseline',
+      'signals',
+      'evidence',
+      'scoring',
+      'findings',
+      'completed',
+    ];
     const currentIndex = stageOrder.indexOf(progressState.stage);
     const stepIndex = stageOrder.indexOf(stepKey);
 
@@ -39,13 +65,15 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
     return 'pending';
   };
 
+  const isComplete = progressState.stage === 'completed';
+
   return (
     <div className="rounded-2xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-6 shadow-sm relative overflow-hidden transition-all animate-in fade-in">
       {/* Top ambient line */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#EFEFF0] via-[#BDBDC1] to-[#7D7E84]" />
 
       {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3C3C42]/40 text-[#EFEFF0] border border-[#3C3C42]/60">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -81,8 +109,8 @@ export function ScanProgressBar({ progressState }: ScanProgressBarProps) {
         />
       </div>
 
-      {/* Step Indicators */}
-      <div className="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-2">
+      {/* 6 Step Indicators */}
+      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {steps.map((step) => {
           const status = getStepStatus(step.key);
           const Icon = step.icon;

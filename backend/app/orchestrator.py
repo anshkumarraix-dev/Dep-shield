@@ -28,7 +28,7 @@ from . import stubs
 
 
 def _get_pipeline_modules():
-    """Dynamically load live modules if stubs are disabled, or fallback to stubs."""
+    """Dynamically load live modules if stubs are disabled, or raise RuntimeError."""
     if settings.use_stubs:
         return stubs, stubs, stubs, stubs
 
@@ -39,9 +39,10 @@ def _get_pipeline_modules():
         _scoring = importlib.import_module(".scoring", package=__package__)
         _tinyfish = importlib.import_module(".tinyfish_client", package=__package__)
         return _baseline, _tinyfish, _classifier, _scoring
-    except (ImportError, AttributeError) as e:
-        logger.warning("Could not load all live modules, falling back to stubs: %s", e)
-        return stubs, stubs, stubs, stubs
+    except Exception as e:
+        err_msg = f"Failed to load live pipeline modules: {e}"
+        logger.error(err_msg)
+        raise RuntimeError(err_msg) from e
 
 
 def build_graph_data(deps: list[Dependency]) -> tuple[list[dict], list[dict]]:
@@ -141,13 +142,37 @@ async def run_scan(scan_id: str, lockfile_text: str, as_of_date: str | None = No
     await event_bus.publish(
         scan_id,
         "progress",
-        {"packages_total": total_pkgs, "packages_done": 0, "status": "running"},
+        {
+            "packages_total": total_pkgs,
+            "packages_done": 0,
+            "packages_failed": 0,
+            "status": "running",
+        },
     )
 
-    baseline_mod, tf_mod, classifier_mod, scoring_mod = _get_pipeline_modules()
+    try:
+        baseline_mod, tf_mod, classifier_mod, scoring_mod = _get_pipeline_modules()
+    except RuntimeError as err:
+        err_msg = str(err)
+        logger.error("Scan %s aborted: %s", scan_id, err_msg)
+        db.update_scan(scan_id, status="error", error=err_msg)
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="system",
+                action="error",
+                target=scan_id,
+                status="error",
+                detail=err_msg,
+            )
+        )
+        await event_bus.publish(scan_id, "error", {"scan_id": scan_id, "error": err_msg})
+        return
 
     # 4. Investigate each selected package with isolated error handling
     packages_done = 0
+    packages_failed = 0
+    failed_packages: list[str] = []
     for dep in packages_to_analyze:
         try:
             # Baseline lookups
@@ -173,12 +198,36 @@ async def run_scan(scan_id: str, lockfile_text: str, as_of_date: str | None = No
             )
 
             # Deterministic scoring
-            finding = scoring_mod.build_finding(dep, scan_id, signals, sources, osv_res)
+            page_texts = {p.url: p.text for p in pages}
+            try:
+                finding = scoring_mod.build_finding(
+                    dep,
+                    scan_id,
+                    signals,
+                    sources,
+                    osv_res,
+                    page_texts=page_texts,
+                    strict_quotes=True,
+                )
+            except TypeError as te:
+                if "strict_quotes" in str(te):
+                    finding = scoring_mod.build_finding(
+                        dep,
+                        scan_id,
+                        signals,
+                        sources,
+                        osv_res,
+                        page_texts=page_texts,
+                    )
+                else:
+                    raise
             if finding:
                 db.save_finding(finding)
                 await event_bus.publish(scan_id, "finding", finding.model_dump(mode="json"))
 
         except Exception as pkg_err:  # noqa: BLE001 (isolated package failure must never crash whole scan)
+            packages_failed += 1
+            failed_packages.append(f"{dep.name}@{dep.version}")
             logger.error("Error analyzing package %s@%s: %s", dep.name, dep.version, pkg_err)
             await emit(
                 ActivityEvent(
@@ -196,22 +245,75 @@ async def run_scan(scan_id: str, lockfile_text: str, as_of_date: str | None = No
         await event_bus.publish(
             scan_id,
             "progress",
-            {"packages_total": total_pkgs, "packages_done": packages_done, "status": "running"},
+            {
+                "packages_total": total_pkgs,
+                "packages_done": packages_done,
+                "packages_failed": packages_failed,
+                "status": "running",
+            },
         )
 
     # 5. Scan finished
-    db.update_scan(scan_id, status="done")
-    await emit(
-        ActivityEvent(
-            scan_id=scan_id,
-            api="system",
-            action="done",
-            target=scan_id,
-            status="ok",
-            detail=f"Scan complete. Analyzed {packages_done}/{total_pkgs} packages.",
+    if total_pkgs > 0 and packages_failed == total_pkgs:
+        err_msg = f"All {total_pkgs} packages failed analysis"
+        logger.error("Scan %s failed: %s", scan_id, err_msg)
+        db.update_scan(scan_id, status="error", error=err_msg)
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="system",
+                action="error",
+                target=scan_id,
+                status="error",
+                detail=err_msg,
+            )
         )
-    )
-    await event_bus.publish(scan_id, "done", {"scan_id": scan_id, "status": "done"})
+        await event_bus.publish(scan_id, "error", {"scan_id": scan_id, "error": err_msg})
+        return
+
+    if packages_failed > 0:
+        partial_msg = f"Partial: {packages_failed} of {total_pkgs} packages could not be analysed (not checked, NOT safe)"
+        db.update_scan(scan_id, status="done", error=partial_msg)
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="system",
+                action="done",
+                target=scan_id,
+                status="ok",
+                detail=f"Scan complete with partial failures: {packages_failed}/{total_pkgs} failed. {partial_msg}",
+            )
+        )
+        await event_bus.publish(
+            scan_id,
+            "done",
+            {
+                "scan_id": scan_id,
+                "status": "done",
+                "packages_failed": packages_failed,
+            },
+        )
+    else:
+        db.update_scan(scan_id, status="done")
+        await emit(
+            ActivityEvent(
+                scan_id=scan_id,
+                api="system",
+                action="done",
+                target=scan_id,
+                status="ok",
+                detail=f"Scan complete. Analyzed {packages_done}/{total_pkgs} packages.",
+            )
+        )
+        await event_bus.publish(
+            scan_id,
+            "done",
+            {
+                "scan_id": scan_id,
+                "status": "done",
+                "packages_failed": 0,
+            },
+        )
 
 
 async def run_research(scan_id: str, finding_id: str) -> Finding | None:

@@ -53,7 +53,7 @@ def block_network_sockets(monkeypatch):
 
 def test_list_gemini_models_default_mode_dry_run(monkeypatch, capsys):
     """Default mode (no flags) makes zero network calls and never prints the API key."""
-    fake_key = "AIzaSyFakeSecretKey_TestDefaultMode_12345"
+    fake_key = "mock-secret-key-default-mode-12345"
     monkeypatch.setenv("GEMINI_API_KEY", fake_key)
     monkeypatch.setenv("GEMINI_MODEL", "gemini-2.0-flash")
 
@@ -90,7 +90,7 @@ def test_list_gemini_models_with_mocked_client(monkeypatch, capsys):
     With --list and a mocked client, print only IDs supporting generateContent,
     verify GEMINI_MODEL detection, and ensure the API key never leaks.
     """
-    fake_key = "AIzaSyFakeSecretKey_MockClient_67890"
+    fake_key = "mock-secret-key-client-test-67890"
     monkeypatch.setenv("GEMINI_API_KEY", fake_key)
     monkeypatch.setenv("GEMINI_MODEL", "gemini-2.0-flash")
     monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: None)
@@ -264,7 +264,7 @@ def test_adversarial_key_redaction_on_exception(monkeypatch, capsys):
     Adversarial test: Google GenAI client raises an exception containing the secret key.
     The exception text in stderr MUST redact the key.
     """
-    secret_key = "AIzaSySecretLeakAttackKey_9876543210123"
+    secret_key = "mock-leak-attack-secret-key-9876543210"
     monkeypatch.setenv("GEMINI_API_KEY", secret_key)
     monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: None)
 

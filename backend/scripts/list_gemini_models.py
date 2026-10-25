@@ -32,7 +32,7 @@ def _redact_key(text: str, api_key: str | None) -> str:
     redacted = text
     if api_key:
         redacted = redacted.replace(api_key, "[REDACTED_API_KEY]")
-    # Redact typical Google AI API key patterns: AIzaSy...
+    # Redact typical Google AI API key patterns
     redacted = re.sub(r"AIza[0-9A-Za-z-_]{35}", "[REDACTED_API_KEY]", redacted)
     return redacted
 

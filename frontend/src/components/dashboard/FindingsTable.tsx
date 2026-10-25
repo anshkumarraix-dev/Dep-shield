@@ -18,12 +18,8 @@ import {
   X,
   AlertOctagon,
   AlertTriangle,
-  AlertCircle,
+  Eye,
   Info,
-  ArrowUpDown,
-  Download,
-  Copy,
-  Check,
 } from 'lucide-react';
 
 interface FindingsTableProps {
@@ -36,31 +32,31 @@ interface FindingsTableProps {
 export function RiskBadge({ level }: { level: RiskLevel }) {
   const styles: Record<
     RiskLevel,
-    { bg: string; text: string; border: string; icon: React.ComponentType<{ className?: string }> }
+    { bg: string; text: string; border: string; icon: React.ReactNode }
   > = {
     CRITICAL: {
-      bg: 'bg-rose-50',
-      text: 'text-rose-700 font-semibold',
-      border: 'border-rose-200',
-      icon: AlertOctagon,
+      bg: 'bg-rose-500/15',
+      text: 'text-rose-400 font-bold',
+      border: 'border-rose-500/30',
+      icon: <AlertOctagon className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
     HIGH: {
-      bg: 'bg-amber-50',
-      text: 'text-amber-800 font-semibold',
-      border: 'border-amber-200',
-      icon: AlertTriangle,
+      bg: 'bg-orange-500/15',
+      text: 'text-orange-400 font-bold',
+      border: 'border-orange-500/30',
+      icon: <AlertTriangle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
     WATCH: {
-      bg: 'bg-sky-50',
-      text: 'text-sky-700 font-medium',
-      border: 'border-sky-200',
-      icon: AlertCircle,
+      bg: 'bg-amber-500/15',
+      text: 'text-amber-400 font-semibold',
+      border: 'border-amber-500/30',
+      icon: <Eye className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
     INFO: {
-      bg: 'bg-slate-100',
-      text: 'text-slate-700 font-medium',
-      border: 'border-slate-200',
-      icon: Info,
+      bg: 'bg-blue-500/15',
+      text: 'text-blue-400 font-medium',
+      border: 'border-blue-500/30',
+      icon: <Info className="h-3 w-3 flex-shrink-0" aria-hidden="true" />,
     },
   };
 
@@ -69,10 +65,10 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] tracking-wide font-mono ${config.bg} ${config.text} ${config.border}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${style.bg} ${style.text} ${style.border}`}
       role="status"
     >
-      <Icon className="h-3 w-3 flex-shrink-0" />
+      {style.icon}
       <span>{level}</span>
     </span>
   );
@@ -250,34 +246,24 @@ export function FindingsTable({
     });
 
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-5 sm:p-6 shadow-xs">
+    <div className="rounded-xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-5 shadow-sm">
       {/* Title & Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#3C3C42]/50">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-blue-600" />
+          <h2 className="text-sm font-semibold text-[#EFEFF0] flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-[#BDBDC1]" />
             Supply Chain Threat Findings
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[#BDBDC1] mt-0.5">
             Correlated vulnerability telemetry across direct and transitive dependencies
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExportReport}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-mono text-slate-700 hover:text-blue-600 hover:border-blue-300 transition-colors shadow-xs"
-            title="Download JSON threat intelligence report"
-          >
-            <Download className="h-3.5 w-3.5 text-blue-600" />
-            <span>Export Report</span>
-          </button>
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-400">Showing</span>
-            <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-blue-700 font-bold border border-blue-200">
-              {filteredFindings.length} of {findings.length}
-            </span>
-            <span className="text-slate-500">findings</span>
-          </div>
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-[#BDBDC1]">Showing</span>
+          <span className="rounded bg-[#3C3C42]/30 px-2 py-0.5 text-[#EFEFF0] font-bold border border-[#3C3C42]/50">
+            {filteredFindings.length} of {findings.length}
+          </span>
+          <span className="text-[#BDBDC1]">findings</span>
         </div>
       </div>
 
@@ -285,7 +271,7 @@ export function FindingsTable({
       <div className="mt-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-3">
         {/* Risk Level Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-[11px] font-medium text-slate-400 mr-1 flex items-center gap-1">
+          <span className="text-[11px] font-medium text-[#7D7E84] mr-1 flex items-center gap-1">
             <Filter className="h-3 w-3" />
             Risk:
           </span>
@@ -295,8 +281,8 @@ export function FindingsTable({
               onClick={() => setSelectedRisk(risk)}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                 selectedRisk === risk
-                  ? 'bg-blue-50 text-blue-700 border border-blue-300 font-semibold shadow-xs'
-                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                  ? 'bg-[#3C3C42] text-[#EFEFF0] border border-[#3C3C42]'
+                  : 'bg-[#010101]/60 text-[#BDBDC1] border border-[#3C3C42]/40 hover:bg-[#3C3C42]/30 hover:text-[#EFEFF0]'
               }`}
             >
               {risk}
@@ -335,13 +321,13 @@ export function FindingsTable({
           </div>
 
           {/* Direct / Transitive Toggle */}
-          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
+          <div className="flex items-center rounded-lg border border-[#3C3C42]/50 bg-[#010101]/80 p-0.5 text-xs">
             <button
               onClick={() => setSelectedDepType('ALL')}
               className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'ALL'
-                  ? 'bg-white text-slate-900 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#3C3C42] text-[#EFEFF0]'
+                  : 'text-[#BDBDC1] hover:text-[#EFEFF0]'
               }`}
             >
               All Types
@@ -350,8 +336,8 @@ export function FindingsTable({
               onClick={() => setSelectedDepType('direct')}
               className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'direct'
-                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#3C3C42] text-[#EFEFF0]'
+                  : 'text-[#BDBDC1] hover:text-[#EFEFF0]'
               }`}
             >
               Direct
@@ -360,8 +346,8 @@ export function FindingsTable({
               onClick={() => setSelectedDepType('transitive')}
               className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
                 selectedDepType === 'transitive'
-                  ? 'bg-white text-blue-700 font-semibold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#3C3C42] text-[#EFEFF0]'
+                  : 'text-[#BDBDC1] hover:text-[#EFEFF0]'
               }`}
             >
               Transitive
@@ -369,21 +355,21 @@ export function FindingsTable({
           </div>
 
           {/* Search Input */}
-          <div className="relative flex-1 md:w-56">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7D7E84]" />
             <input
               id="findings-search-input"
               aria-label="Search package, CVE, or title"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search package, category, title..."
-              className="w-full rounded-lg border border-slate-200 bg-white py-1 pl-8 pr-7 text-xs text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-xs"
+              placeholder="Search package, CVE, or title..."
+              className="w-full rounded-lg border border-[#3C3C42]/50 bg-[#010101]/80 py-1 pl-8 pr-7 text-xs text-[#EFEFF0] placeholder-[#7D7E84] focus:border-[#3C3C42] focus:outline-none focus:ring-1 focus:ring-[#3C3C42]"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7D7E84] hover:text-[#EFEFF0]"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -393,11 +379,11 @@ export function FindingsTable({
       </div>
 
       {/* Table Container */}
-      <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+      <div className="mt-2 overflow-x-auto rounded-lg border border-[#3C3C42]/50 bg-[#010101]/40">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase text-slate-500">
-              <th className="py-3 pl-4">Risk Level</th>
+            <tr className="border-b border-[#3C3C42]/50 bg-[#010101]/80 text-[11px] font-semibold uppercase text-[#7D7E84]">
+              <th className="py-3 pl-3">Risk Level</th>
               <th className="py-3">Package / Version</th>
               <th className="py-3">Dependency Type</th>
               <th className="py-3">Threat Summary</th>
@@ -411,12 +397,12 @@ export function FindingsTable({
               <th className="py-3 pr-4 text-right">Details</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-[#3C3C42]/30">
             {filteredFindings.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-400">
+                <td colSpan={7} className="py-8 text-center text-[#7D7E84]">
                   <div className="flex flex-col items-center justify-center gap-1.5">
-                    <SlidersHorizontal className="h-5 w-5 text-slate-400" />
+                    <SlidersHorizontal className="h-5 w-5 text-[#5F5F62]" />
                     <span>No findings match the selected filters or search query.</span>
                     <button
                       onClick={() => {
@@ -424,7 +410,7 @@ export function FindingsTable({
                         setSelectedDepType('ALL');
                         setSearchQuery('');
                       }}
-                      className="mt-1 text-xs text-blue-600 hover:underline cursor-pointer"
+                      className="mt-1 text-xs text-[#EFEFF0] hover:underline"
                     >
                       Reset all filters
                     </button>
@@ -440,8 +426,8 @@ export function FindingsTable({
                     onClick={() => onSelectFinding(finding)}
                     className={`group cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-blue-50/70 border-l-4 border-l-blue-600'
-                        : 'hover:bg-slate-50/80'
+                        ? 'bg-[#3C3C42]/30 border-l-2 border-l-[#EFEFF0]'
+                        : 'hover:bg-[#3C3C42]/20'
                     }`}
                   >
                     {/* Risk Level Badge */}
@@ -450,47 +436,34 @@ export function FindingsTable({
                     </td>
 
                     {/* Package Name & Installed Version */}
-                    <td className="py-3.5 pr-4 whitespace-nowrap">
-                      <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors font-mono">
+                    <td className="py-3 pr-4 whitespace-nowrap">
+                      <div className="font-semibold text-[#EFEFF0] group-hover:text-white transition-colors font-mono">
                         {finding.packageName}
                       </div>
-                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        <span className="text-slate-600">v{finding.installedVersion}</span>
+                      <div className="text-[11px] text-[#BDBDC1] font-mono mt-0.5">
+                        <span className="text-[#EFEFF0]">v{finding.installedVersion}</span>
                         {finding.fixedVersion && (
-                          <span className="text-slate-400 ml-1">
-                            &rarr; <span className="text-emerald-700 font-medium">v{finding.fixedVersion}</span>
+                          <span className="text-[#7D7E84] ml-1">
+                            &rarr; <span className="text-emerald-400">v{finding.fixedVersion}</span>
                           </span>
                         )}
                       </div>
                     </td>
 
                     {/* Direct vs Transitive */}
-                    <td className="py-3.5 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase ${
-                          finding.dependencyType === 'direct'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200 font-medium'
-                            : 'bg-slate-100 text-slate-600 border border-slate-200'
-                        }`}
-                      >
+                    <td className="py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-mono uppercase bg-[#3C3C42]/40 text-[#BDBDC1] border border-[#3C3C42]/60">
                         <Layers className="h-2.5 w-2.5" />
                         {finding.dependencyType}
                       </span>
                     </td>
 
                     {/* Title & Explanation */}
-                    <td className="py-3.5 pr-4 max-w-sm">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {finding.signalCategory && (
-                          <span className="rounded bg-slate-100 px-1.5 py-0.2 text-[9px] font-mono text-slate-600 border border-slate-200">
-                            {finding.signalCategory.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                        <span className="font-medium text-slate-900 line-clamp-1">
-                          {finding.title}
-                        </span>
+                    <td className="py-3 pr-4 max-w-sm">
+                      <div className="font-medium text-[#EFEFF0] line-clamp-1">
+                        {finding.title}
                       </div>
-                      <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                      <div className="text-[11px] text-[#BDBDC1] line-clamp-1 mt-0.5">
                         {finding.riskExplanation}
                       </div>
                     </td>
@@ -499,13 +472,13 @@ export function FindingsTable({
                     <td className="py-3.5 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span
-                          className="font-mono text-slate-900 font-medium text-xs"
+                          className="font-mono text-[#EFEFF0] font-medium text-xs"
                           title="Rule-based heuristic score (not a statistical probability)"
                         >
-                          {(finding.confidence * 100).toFixed(0)}% <span className="text-[10px] text-slate-400 font-sans">heuristic</span>
+                          {(finding.confidence * 100).toFixed(0)}% <span className="text-[10px] text-[#7D7E84] font-sans">heuristic</span>
                         </span>
                         <span
-                          className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 font-mono border border-slate-200"
+                          className="rounded bg-[#3C3C42]/40 px-1.5 py-0.2 text-[10px] text-[#BDBDC1] font-mono"
                           title="Deduplicated independent original sources"
                         >
                           {finding.sourceCount} {finding.sourceCount === 1 ? 'src' : 'srcs'}
@@ -518,55 +491,18 @@ export function FindingsTable({
                       <OsvBadge state={finding.osvLookupState} in_osv={finding.in_osv} />
                     </td>
 
-                    {/* Details & Actions */}
-                    <td className="py-3.5 pr-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Status Toggle */}
-                        <button
-                          onClick={(e) => handleToggleStatus(finding.id, finding.status, e)}
-                          className={`rounded-md px-2 py-0.5 text-[9px] font-mono uppercase border transition-all cursor-pointer ${
-                            (statusOverrides[finding.id] || finding.status) === 'MITIGATED'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
-                              : (statusOverrides[finding.id] || finding.status) === 'INVESTIGATING'
-                              ? 'bg-amber-50 text-amber-800 border-amber-300'
-                              : 'bg-slate-100 text-slate-600 border-slate-200 hover:text-slate-900'
-                          }`}
-                          title="Click to toggle status (OPEN -> INVESTIGATING -> MITIGATED)"
-                        >
-                          {statusOverrides[finding.id] || finding.status}
-                        </button>
-
-                        {/* Quick Copy Fix */}
-                        <button
-                          onClick={(e) => handleCopyFix(finding, e)}
-                          className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-mono text-slate-700 border border-slate-200 hover:border-blue-300 hover:text-blue-700 transition-colors shadow-xs cursor-pointer"
-                          title={finding.fixedVersion ? `Copy: npm install ${finding.packageName}@${finding.fixedVersion}` : 'Copy: npm audit fix'}
-                        >
-                          {copiedId === finding.id ? (
-                            <>
-                              <Check className="h-2.5 w-2.5 text-emerald-600" />
-                              <span className="text-emerald-700 font-semibold">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-2.5 w-2.5 text-slate-400" />
-                              <span>Fix</span>
-                            </>
-                          )}
-                        </button>
-
-                        {/* Open Evidence Drawer */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectFinding(finding);
-                          }}
-                          className="inline-flex items-center gap-1 text-xs text-slate-500 group-hover:text-blue-600 font-medium transition-colors pl-1 cursor-pointer"
-                        >
-                          <span>Evidence</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                    {/* Details Action */}
+                    <td className="py-3 pr-3 whitespace-nowrap text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectFinding(finding);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-[#BDBDC1] group-hover:text-[#EFEFF0] transition-colors"
+                      >
+                        <span>Evidence</span>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -577,11 +513,11 @@ export function FindingsTable({
       </div>
 
       {/* Helpful Hint & Severity Policy Explanation */}
-      <div className="mt-3.5 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-[#7D7E84] gap-2 border-t border-[#3C3C42]/40 pt-2.5">
         <span>
-          <strong className="text-slate-700">Severity Policy:</strong> Single independent sources cannot exceed WATCH. Higher severity requires confirmed package/version relevance and independent original corroboration — not raw domain counts.
+          <strong className="text-[#BDBDC1]">Severity Policy:</strong> Single independent sources cannot exceed WATCH. Higher severity requires confirmed package/version relevance and independent original corroboration — not raw domain counts.
         </span>
-        <span className="font-mono text-[10px] text-slate-400 flex-shrink-0">
+        <span className="font-mono text-[10px] text-[#7D7E84] flex-shrink-0">
           Catalog: {findings.length} findings
         </span>
       </div>

@@ -71,19 +71,19 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-5 sm:p-6 shadow-xs">
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+    <div className="rounded-xl border border-[#3C3C42]/50 bg-[#3C3C42]/20 backdrop-blur-md p-5 shadow-sm">
+      <div className="flex items-center justify-between pb-4 border-b border-[#3C3C42]/50">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-blue-600" />
+          <h2 className="text-sm font-semibold text-[#EFEFF0] flex items-center gap-2">
+            <Clock className="h-4 w-4 text-[#BDBDC1]" />
             Supply Chain Activity Stream
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[#BDBDC1] mt-0.5">
             Real-time audit log of parser, OSV check, search and fetch telemetry
           </p>
         </div>
-        <span className="flex items-center gap-1 text-[10px] font-mono font-medium rounded-full bg-blue-50 px-2.5 py-0.5 text-blue-700 border border-blue-200">
-          <Sparkles className="h-3 w-3 text-blue-600" />
+        <span className="flex items-center gap-1 text-[10px] font-mono font-medium rounded-full bg-[#3C3C42]/30 px-2.5 py-0.5 text-[#BDBDC1] border border-[#3C3C42]/50">
+          <Sparkles className="h-3 w-3 text-[#EFEFF0]" />
           Simulated Pipeline
         </span>
       </div>
@@ -98,7 +98,7 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
               {/* Timeline connector line */}
               {index < activity.length - 1 && (
                 <span
-                  className="absolute left-[15px] top-8 bottom-0 w-px bg-slate-200 group-hover:bg-slate-300 transition-colors"
+                  className="absolute left-[15px] top-8 bottom-0 w-px bg-[#3C3C42]/50 group-hover:bg-[#3C3C42]"
                   aria-hidden="true"
                 />
               )}
@@ -112,23 +112,23 @@ export function ActivityFeedPreview({ activity }: ActivityFeedPreviewProps) {
 
               <div className="flex-1 pb-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xs font-semibold text-slate-900">{event.title}</span>
-                  <span className="text-[11px] text-slate-400 whitespace-nowrap font-mono">
+                  <span className="text-xs font-medium text-[#EFEFF0]">{event.title}</span>
+                  <span className="text-[11px] text-[#7D7E84] whitespace-nowrap font-mono">
                     {event.timestamp}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-slate-600 leading-relaxed">{event.description}</p>
+                <p className="mt-1 text-xs text-[#BDBDC1] leading-relaxed">{event.description}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase rounded px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 font-medium">
+                  <span className="text-[10px] font-mono uppercase rounded px-1.5 py-0.2 bg-[#3C3C42]/40 text-[#BDBDC1] border border-[#3C3C42]/60">
                     {badge.label}
                   </span>
                   {event.isSimulated && (
-                    <span className="text-[10px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                    <span className="text-[10px] font-mono text-[#BDBDC1] bg-[#3C3C42]/30 px-2 py-0.2 rounded border border-[#3C3C42]/50">
                       Simulated Event
                     </span>
                   )}
                   {event.targetPackage && (
-                    <span className="text-[10px] font-mono text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                    <span className="text-[10px] font-mono text-[#BDBDC1] bg-[#010101]/80 px-2 py-0.2 rounded border border-[#3C3C42]/50">
                       {event.targetPackage}
                     </span>
                   )}

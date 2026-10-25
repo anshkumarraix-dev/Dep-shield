@@ -257,6 +257,24 @@ async def classify_pages(
     async with sem:
         result_signals = await _call_gemini(model_name, user_prompt)
 
+    # --- Reconcile signal URLs to exact input page URLs --------------------
+    url_lookup = {}
+    for p in pages:
+        url_lookup[p.url] = p.url
+        url_lookup[p.url.rstrip("/")] = p.url
+        url_lookup[p.url.rstrip("/") + "/"] = p.url
+        url_lookup[p.url.lower()] = p.url
+        url_lookup[p.url.lower().rstrip("/")] = p.url
+        url_lookup[p.url.lower().rstrip("/") + "/"] = p.url
+
+    aligned: list[Signal] = []
+    for s in result_signals:
+        matched = url_lookup.get(s.url)
+        if matched and matched != s.url:
+            s = s.model_copy(update={"url": matched})
+        aligned.append(s)
+    result_signals = aligned
+
     # --- Cache result -------------------------------------------------------
     if os.getenv("USE_CACHE", "1") == "1":
         payload = _ClassifierResponse(
@@ -306,7 +324,19 @@ async def classify(
         if cached is not None:
             try:
                 resp = _ClassifierResponse.model_validate(cached)
-                signals = [_to_signal(r) for r in resp.signals]
+                raw_signals = [_to_signal(r) for r in resp.signals]
+                url_lookup = {}
+                for p in pages:
+                    url_lookup[p.url] = p.url
+                    url_lookup[p.url.rstrip("/")] = p.url
+                    url_lookup[p.url.rstrip("/") + "/"] = p.url
+                    url_lookup[p.url.lower()] = p.url
+                    url_lookup[p.url.lower().rstrip("/")] = p.url
+                    url_lookup[p.url.lower().rstrip("/") + "/"] = p.url
+                signals = [
+                    s.model_copy(update={"url": url_lookup.get(s.url, s.url)})
+                    for s in raw_signals
+                ]
                 if emit:
                     elapsed_ms = int((time.perf_counter() - start_time) * 1000)
                     await emit(

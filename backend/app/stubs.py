@@ -246,6 +246,9 @@ def build_finding(
     signals: list[Signal],
     sources: list[Source],
     osv: OsvResult,
+    *,
+    page_texts: dict[str, str] | None = None,
+    strict_quotes: bool = False,
 ) -> Finding | None:
     """Pure deterministic scoring stub."""
     relevant_signals = [s for s in signals if s.security_relevant]

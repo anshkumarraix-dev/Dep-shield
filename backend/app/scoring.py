@@ -314,22 +314,30 @@ def _build_reasoning(
     conf_parts: dict[str, float],
     filtered_count: int,
     total_count: int,
+    qualifying_count: int = 0,
+    unverified_count: int = 0,
+    non_qualifying_count: int = 0,
+    has_conflict: bool = False,
+    deciding_url: str = "",
 ) -> str:
     lines = [
         f"Status={status} | confidence={confidence:.4f}",
         f"Signals: {total_count} total, {filtered_count} security-relevant after filtering.",
+        f"Qualifying signals for {status}: {qualifying_count} ({unverified_count} unverified, {non_qualifying_count} non-qualifying).",
         f"Independent original sources (distinct registrable domains): {n_independent}.",
-        f"Best version_match={version_match}, severity={severity}, advisory_source={has_advisory}.",
+        f"Deciding signal: severity={severity}, version_match={version_match}, advisory_source={has_advisory}{f' from {deciding_url}' if deciding_url else ''}.",
         f"OSV: {'in OSV' if in_osv else ('not in OSV' if in_osv is False else 'lookup failed/unknown')}.",
-        "",
-        "Confidence breakdown (see scoring.py for formula):",
     ]
+    if has_conflict:
+        lines.append("Warning: conflicting reports between not_affected and confirmed sources; status capped at WATCH.")
+    lines.append("")
+    lines.append("Confidence breakdown (see scoring.py for formula):")
     for name, val in conf_parts.items():
         lines.append(f"  {name}: {val:.4f}")
     lines.append(
         "Rules applied: one source→WATCH; not_affected→INFO; "
-        "HIGH needs ≥2 indep + (high|critical) sev + (confirmed|possible) version; "
-        "CRITICAL needs ≥2 indep + confirmed + critical sev."
+        "HIGH needs ≥2 indep qualifying (high|critical) sev + (confirmed|possible) version; "
+        "CRITICAL needs ≥2 indep qualifying confirmed + critical sev."
     )
     return "\n".join(lines)
 
@@ -382,18 +390,19 @@ def build_finding(
     osv: Optional[OsvResult],
     *,
     page_texts: Optional[dict[str, str]] = None,  # url -> full page text for quote verification
+    strict_quotes: bool = False,
 ) -> Optional[Finding]:
     """Build a deterministic Finding from classifier signals.
 
     Parameters
     ----------
-    dep        : The dependency being scored.
-    scan_id    : Identifier of the parent scan.
-    signals    : List of Signal objects produced by classifier.py.
-    sources    : List of Source objects (metadata about fetched pages).
-    osv        : OsvResult from the OSV lookup (may be None if lookup was skipped).
-    page_texts : Mapping of URL→full page text used to verify evidence_quote fields.
-                 When None, quote verification is skipped (tests may pass {} to disable).
+    dep           : The dependency being scored.
+    scan_id       : Identifier of the parent scan.
+    signals       : List of Signal objects produced by classifier.py.
+    sources       : List of Source objects (metadata about fetched pages).
+    osv           : OsvResult from the OSV lookup (may be None if lookup was skipped).
+    page_texts    : Mapping of URL→full page text used to verify evidence_quote fields.
+    strict_quotes : When True, quote verification is required for qualification toward HIGH/CRITICAL.
 
     Returns
     -------
@@ -402,44 +411,137 @@ def build_finding(
     """
     # --- 1. Filter to security-relevant signals only -----------------------
     relevant = [s for s in signals if s.security_relevant]
-
-    # --- 2. Verify evidence quotes; drop/downgrade signals with bad quotes -
-    if page_texts is not None and page_texts:
-        verified: list[Signal] = []
-        for sig in relevant:
-            if sig.evidence_quote:
-                page_text = page_texts.get(sig.url, "")
-                if not _verify_quote(sig.evidence_quote, page_text):
-                    # Downgrade: clear the quote and reduce credibility
-                    sig = sig.model_copy(
-                        update={
-                            "evidence_quote": "",
-                            "credibility": max(0.0, sig.credibility - 0.2),
-                        }
-                    )
-            verified.append(sig)
-        relevant = verified
-
-    # --- 3. If no relevant signals, this dependency is clean ---------------
     if not relevant:
         return None
 
-    # --- 4. Compute independence -------------------------------------------
-    n_independent, has_advisory = _independent_sources(relevant)
+    # --- 2. Quote verification and qualification tracking ------------------
+    verified_signals: list[Signal] = []
+    is_verified_map: dict[int, bool] = {}
 
-    # --- 5. Best-case version_match & severity across all relevant signals -
-    # For version_match, "confirmed" > "possible" > "unknown" > "not_affected"
-    vm_rank = {"confirmed": 3, "possible": 2, "unknown": 1, "not_affected": 0}
-    best_vm: VersionMatch = max(relevant, key=lambda s: vm_rank.get(s.version_match, 0)).version_match
-    best_sev: Severity = _max_severity(relevant)
-    max_cred = max(s.credibility for s in relevant)
+    if strict_quotes:
+        texts = page_texts or {}
+        for sig in relevant:
+            if sig.evidence_quote and _verify_quote(sig.evidence_quote, texts.get(sig.url, "")):
+                verified_signals.append(sig)
+                is_verified_map[id(sig)] = True
+            else:
+                # Unverified: keep in signals, clear quote, reduce credibility
+                downgraded = sig.model_copy(
+                    update={
+                        "evidence_quote": "",
+                        "credibility": max(0.0, sig.credibility - 0.2),
+                    }
+                )
+                verified_signals.append(downgraded)
+                is_verified_map[id(downgraded)] = False
+        relevant = verified_signals
+    else:
+        if page_texts:
+            for sig in relevant:
+                if sig.evidence_quote:
+                    page_text = page_texts.get(sig.url, "")
+                    if not _verify_quote(sig.evidence_quote, page_text):
+                        sig = sig.model_copy(
+                            update={
+                                "evidence_quote": "",
+                                "credibility": max(0.0, sig.credibility - 0.2),
+                            }
+                        )
+                verified_signals.append(sig)
+                is_verified_map[id(sig)] = True
+            relevant = verified_signals
+        else:
+            for sig in relevant:
+                is_verified_map[id(sig)] = True
 
-    # --- 6. Collect affected_versions string --------------------------------
-    affected_strs = [s.affects_versions for s in relevant if s.affects_versions]
-    affected_versions = "; ".join(dict.fromkeys(affected_strs))  # deduplicate, order-preserving
+    # --- 3. Evaluate evidence per signal (never combine across signals) ----
+    def _qualifies_high(s: Signal) -> bool:
+        if not (s.security_relevant and s.is_original_report):
+            return False
+        if s.severity not in ("high", "critical"):
+            return False
+        if s.version_match not in ("confirmed", "possible"):
+            return False
+        if strict_quotes and not is_verified_map.get(id(s), False):
+            return False
+        return True
 
-    # --- 7. OSV fields ------------------------------------------------------
-    if osv is None or osv.error:
+    def _qualifies_critical(s: Signal) -> bool:
+        return _qualifies_high(s) and s.severity == "critical" and s.version_match == "confirmed"
+
+    # Conflicting reports: one credible original report says not_affected while another says confirmed
+    has_not_affected = any(
+        s.version_match == "not_affected" for s in relevant if s.is_original_report and s.security_relevant
+    )
+    has_confirmed = any(
+        s.version_match == "confirmed" for s in relevant if s.is_original_report and s.security_relevant
+    )
+    has_conflict = has_not_affected and has_confirmed
+
+    # Group qualifying signals
+    critical_qualifying = [s for s in relevant if _qualifies_critical(s)]
+    high_qualifying = [s for s in relevant if _qualifies_high(s)]
+
+    n_crit_indep, has_crit_advisory = _independent_sources(critical_qualifying)
+    n_high_indep, has_high_advisory = _independent_sources(high_qualifying)
+    n_all_indep, has_any_advisory = _independent_sources(relevant)
+
+    # --- 4. Determine status strictly per spec -----------------------------
+    status: Status = "INFO"
+    deciding_signals: list[Signal] = []
+    qualifying_count = 0
+
+    if not has_conflict:
+        if n_crit_indep >= 2 or (has_crit_advisory and n_high_indep >= 2):
+            status = "CRITICAL"
+            deciding_signals = critical_qualifying if n_crit_indep >= 2 else high_qualifying
+            qualifying_count = len(deciding_signals)
+        elif n_high_indep >= 2:
+            status = "HIGH"
+            deciding_signals = high_qualifying
+            qualifying_count = len(high_qualifying)
+
+    if status not in ("CRITICAL", "HIGH"):
+        all_not_affected = all(s.version_match == "not_affected" for s in relevant)
+        if all_not_affected:
+            status = "INFO"
+            deciding_signals = relevant
+            qualifying_count = len(relevant)
+        elif n_all_indep >= 1:
+            status = "WATCH"
+            deciding_signals = [s for s in relevant if s.is_original_report] or relevant
+            qualifying_count = len(deciding_signals)
+        else:
+            status = "INFO"
+            deciding_signals = relevant
+            qualifying_count = len(relevant)
+
+    # --- 5. Extract displayed fields from the deciding signal --------------
+    def _signal_rank(s: Signal) -> tuple[int, int, float]:
+        vm_rank = {"confirmed": 3, "possible": 2, "unknown": 1, "not_affected": 0}
+        return (_sev_rank(s.severity), vm_rank.get(s.version_match, 0), s.credibility)
+
+    best_sig = max(deciding_signals, key=_signal_rank, default=relevant[0])
+    best_sev = best_sig.severity
+    best_vm = best_sig.version_match
+    max_cred = max((s.credibility for s in deciding_signals), default=best_sig.credibility)
+
+    affected_strs = [s.affects_versions for s in deciding_signals if s.affects_versions]
+    affected_versions = "; ".join(dict.fromkeys(affected_strs)) or best_sig.affects_versions
+
+    # Independent sources count and advisory flag for confidence
+    if status == "CRITICAL":
+        n_display_indep = n_crit_indep if n_crit_indep >= 2 else n_high_indep
+        has_advisory = has_crit_advisory
+    elif status == "HIGH":
+        n_display_indep = n_high_indep
+        has_advisory = has_high_advisory
+    else:
+        n_display_indep = n_all_indep
+        has_advisory = has_any_advisory
+
+    # --- 6. OSV fields (fail closed: failed lookup is None, never False) ---
+    if osv is None or osv.error is not None or not osv.queried:
         in_osv: Optional[bool] = None
         osv_ids: list[str] = []
     elif osv.vuln_ids:
@@ -449,18 +551,9 @@ def build_finding(
         in_osv = False
         osv_ids = []
 
-    # --- 8. Determine status ------------------------------------------------
-    status = _determine_status(
-        n_independent=n_independent,
-        version_match=best_vm,
-        severity=best_sev,
-        has_advisory=has_advisory,
-        any_relevant=bool(relevant),
-    )
-
-    # --- 9. Confidence ------------------------------------------------------
+    # --- 7. Confidence calculation -----------------------------------------
     conf_parts: dict[str, float] = {
-        "sources(20%)":  round(0.20 * min(n_independent, 3) / 3, 4),
+        "sources(20%)":  round(0.20 * min(n_display_indep, 3) / 3, 4),
         "credibility(30%)": round(0.30 * max_cred, 4),
         "version_match(20%)": round(0.20 * {"confirmed": 1.0, "possible": 0.6, "unknown": 0.2, "not_affected": 0.0}.get(best_vm, 0.2), 4),
         "severity(15%)": round(0.15 * _sev_rank(best_sev) / 4, 4),
@@ -468,7 +561,7 @@ def build_finding(
         "osv(5%)": round(0.05 if in_osv else (0.02 if in_osv is None else 0.0), 4),
     }
     confidence = _compute_confidence(
-        n_independent=n_independent,
+        n_independent=n_display_indep,
         max_credibility=max_cred,
         version_match=best_vm,
         severity=best_sev,
@@ -476,12 +569,15 @@ def build_finding(
         in_osv=in_osv,
     )
 
-    # --- 10. Build stable ID & texts ---------------------------------------
+    # --- 8. Build stable ID & texts ---------------------------------------
     finding_id = _finding_id(dep.name, dep.version, dep.ecosystem)
+    summary = _build_summary(dep.name, dep.version, status, best_sev, best_vm, n_display_indep)
 
-    summary = _build_summary(dep.name, dep.version, status, best_sev, best_vm, n_independent)
+    unverified_count = sum(1 for s in relevant if not is_verified_map.get(id(s), False))
+    non_qualifying_count = len(relevant) - qualifying_count
+
     reasoning = _build_reasoning(
-        n_independent=n_independent,
+        n_independent=n_display_indep,
         version_match=best_vm,
         severity=best_sev,
         has_advisory=has_advisory,
@@ -491,9 +587,14 @@ def build_finding(
         conf_parts=conf_parts,
         filtered_count=len(relevant),
         total_count=len(signals),
+        qualifying_count=qualifying_count,
+        unverified_count=unverified_count,
+        non_qualifying_count=non_qualifying_count,
+        has_conflict=has_conflict,
+        deciding_url=best_sig.url,
     )
 
-    # --- 11. first_signal_at from sources ----------------------------------
+    # --- 9. first_signal_at from sources ----------------------------------
     dates = [s.published_at for s in sources if s.published_at is not None]
     first_signal_at = min(dates, default=None)
 
@@ -514,7 +615,7 @@ def build_finding(
         version_match=best_vm,
         in_osv=in_osv,
         osv_ids=osv_ids,
-        independent_sources=n_independent,
+        independent_sources=n_display_indep,
         sources=sources,
         signals=relevant,
         first_signal_at=first_signal_at,

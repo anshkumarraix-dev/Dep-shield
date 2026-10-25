@@ -25,7 +25,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 import app.classifier as clf
-from app.models import PageContent
+from app.models import Dependency, OsvResult, PageContent
 
 
 # ---------------------------------------------------------------------------
@@ -531,3 +531,20 @@ def test_classify_cache_hit_emits_cached_event(monkeypatch):
     assert events2[0].status == "cached"
     assert events2[0].api == "gemini"
     assert events2[0].target == "lodash@4.17.20"
+
+
+def test_classifier_url_roundtrips_with_input_pages(monkeypatch):
+    """Signals returned by classify carry the exact page URL string from input PageContent."""
+    exact_url = "https://github.com/example/repo/issues/100"
+    gemini_returned_url = "https://github.com/example/repo/issues/100/"  # trailing slash difference
+
+    page = _page(exact_url, "Critical prototype pollution flaw verified in package.")
+    _patch_genai(monkeypatch, _valid_response_json(gemini_returned_url, "Critical prototype pollution flaw"))
+
+    dep = Dependency(name="test-pkg", version="1.0.0", direct=True, dep_path=["app", "test-pkg@1.0.0"])
+    osv = OsvResult(queried=True, vuln_ids=[])
+
+    signals = run(clf.classify(dep, [page], osv))
+    assert len(signals) == 1
+    # URL must match the exact key from the input page object so page_texts[sig.url] resolves
+    assert signals[0].url == exact_url

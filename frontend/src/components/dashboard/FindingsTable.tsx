@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Eye,
   Info,
+  ArrowUpDown,
 } from 'lucide-react';
 
 interface FindingsTableProps {
@@ -61,14 +62,13 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
   };
 
   const config = styles[level] || styles.INFO;
-  const Icon = config.icon;
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${style.bg} ${style.text} ${style.border}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] tracking-wider font-mono ${config.bg} ${config.text} ${config.border}`}
       role="status"
     >
-      {style.icon}
+      {config.icon}
       <span>{level}</span>
     </span>
   );

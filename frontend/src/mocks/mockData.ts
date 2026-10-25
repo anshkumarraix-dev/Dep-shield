@@ -137,7 +137,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'Open Source Vulnerabilities (OSV) Index',
         sourceType: 'OSV Database',
-        safeUrl: 'https://example.com/demo/advisories/SYNTH-OSV-2026-081',
+        safeUrl: 'https://osv.dev/vulnerability/GHSA-p6mc-m468-83gw',
         publishedAt: '2020-07-15T18:15:00Z',
         retrievedAt: '2026-10-24T09:15:00Z',
         isOriginalSource: false,
@@ -146,7 +146,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'Public Issue Tracker (Original Reproduction)',
         sourceType: 'Issue Tracker',
-        safeUrl: 'https://example.com/demo/issues/lodash-merge-proto',
+        safeUrl: 'https://github.com/lodash/lodash/issues/4759',
         publishedAt: '2020-07-02T14:22:00Z',
         retrievedAt: '2026-10-24T09:15:02Z',
         isOriginalSource: true,
@@ -207,7 +207,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'DepShield Supply Chain Threat Intelligence',
         sourceType: 'Dependency Graph Scanner',
-        safeUrl: 'https://example.com/demo/advisories/SYNTH-OSV-2026-144',
+        safeUrl: 'https://osv.dev/vulnerability/GHSA-r628-82hm-mfhg',
         publishedAt: null,
         retrievedAt: '2026-10-24T09:15:04Z',
         isOriginalSource: true,
@@ -216,7 +216,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'Security Research Advisory Note',
         sourceType: 'Public Advisory',
-        safeUrl: 'https://example.com/demo/advisories/tar-pax-headers',
+        safeUrl: 'https://github.com/isaacs/node-tar/security/advisories/GHSA-r628-82hm-mfhg',
         publishedAt: '2021-08-31T16:00:00Z',
         retrievedAt: '2026-10-24T09:15:05Z',
         isOriginalSource: true,
@@ -277,7 +277,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'Open Source Vulnerabilities (OSV) Simulated Mirror',
         sourceType: 'OSV Database',
-        safeUrl: 'https://example.com/demo/advisories/SYNTH-OSV-2026-219',
+        safeUrl: 'https://osv.dev/vulnerability/GHSA-cxjh-pqwp-8mfp',
         publishedAt: '2024-03-14T17:15:00Z',
         retrievedAt: '2026-10-24T09:15:06Z',
         isOriginalSource: false,
@@ -286,7 +286,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'Security Advisory: Cross-Origin Token Leak',
         sourceType: 'Independent Security Report',
-        safeUrl: 'https://example.com/demo/reports/follow-redirects-leak',
+        safeUrl: 'https://github.com/follow-redirects/follow-redirects/issues/192',
         publishedAt: '2024-02-12T08:10:00Z',
         retrievedAt: '2026-10-24T09:15:07Z',
         isOriginalSource: true,
@@ -346,7 +346,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'DepShield Behavioral Heuristic Analyzer',
         sourceType: 'Registry Heuristics',
-        safeUrl: 'https://example.com/demo/heuristics/lifecycle-scripts',
+        safeUrl: 'https://docs.npmjs.com/cli/v10/using-npm/scripts#life-cycle-scripts',
         publishedAt: null,
         retrievedAt: '2026-10-24T09:15:08Z',
         isOriginalSource: true,
@@ -406,7 +406,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'Supply Chain Hygiene & Provenance Service (Simulated)',
         sourceType: 'Static Manifest Linter',
-        safeUrl: 'https://example.com/demo/hygiene/unmaintained-packages',
+        safeUrl: 'https://www.npmjs.com/package/inherits',
         publishedAt: null,
         retrievedAt: '2026-10-24T09:15:10Z',
         isOriginalSource: true,
@@ -466,7 +466,7 @@ export const mockFindings: SecurityFinding[] = [
       {
         name: 'DepShield Best Practice Linter',
         sourceType: 'Static Manifest Linter',
-        safeUrl: 'https://example.com/demo/policies/exact-pinning',
+        safeUrl: 'https://docs.npmjs.com/about-semantic-versioning',
         publishedAt: null,
         retrievedAt: '2026-10-24T09:15:12Z',
         isOriginalSource: true,

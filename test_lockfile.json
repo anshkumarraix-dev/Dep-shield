@@ -1,0 +1,44 @@
+{
+  "name": "threat-test-app",
+  "version": "1.0.0",
+  "lockfileVersion": 2,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "threat-test-app",
+      "version": "1.0.0",
+      "dependencies": {
+        "event-stream": "3.3.6"
+      }
+    },
+    "node_modules/event-stream": {
+      "version": "3.3.6",
+      "resolved": "https://registry.npmjs.org/event-stream/-/event-stream-3.3.6.tgz",
+      "integrity": "sha512-dWuh5IfPkEd9tdN4e9n76nNxaB6rB0i65vBvM9kYfR69N/w1X9P8pCg6d/g/e9x27g9d2y/4e/w7/g==",
+      "dependencies": {
+        "flatmap-stream": "0.1.1"
+      }
+    },
+    "node_modules/flatmap-stream": {
+      "version": "0.1.1",
+      "resolved": "https://registry.npmjs.org/flatmap-stream/-/flatmap-stream-0.1.1.tgz",
+      "integrity": "sha512-D3x64j07Q7p2x5a7NnF69n8bC3x4e/5t5y/12x1p7n77n9/x/e6d7w==",
+      "hasInstallScript": true
+    }
+  },
+  "dependencies": {
+    "event-stream": {
+      "version": "3.3.6",
+      "resolved": "https://registry.npmjs.org/event-stream/-/event-stream-3.3.6.tgz",
+      "integrity": "sha512-dWuh5IfPkEd9tdN4e9n76nNxaB6rB0i65vBvM9kYfR69N/w1X9P8pCg6d/g/e9x27g9d2y/4e/w7/g==",
+      "requires": {
+        "flatmap-stream": "0.1.1"
+      }
+    },
+    "flatmap-stream": {
+      "version": "0.1.1",
+      "resolved": "https://registry.npmjs.org/flatmap-stream/-/flatmap-stream-0.1.1.tgz",
+      "integrity": "sha512-D3x64j07Q7p2x5a7NnF69n8bC3x4e/5t5y/12x1p7n77n9/x/e6d7w=="
+    }
+  }
+}

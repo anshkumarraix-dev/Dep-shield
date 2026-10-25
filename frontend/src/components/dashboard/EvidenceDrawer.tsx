@@ -587,10 +587,11 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
                         href={src.safeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-[#EFEFF0] hover:underline font-mono flex-shrink-0 self-start sm:self-center"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#18191c] hover:bg-[#23252b] text-[#38bdf8] hover:text-cyan-300 text-[11px] font-mono border border-[#3C3C42]/60 hover:border-cyan-500/50 transition-colors flex-shrink-0 self-start sm:self-center max-w-[280px] sm:max-w-[340px] group shadow-sm"
+                        title={src.safeUrl}
                       >
-                        <span>Demo Link</span>
-                        <ExternalLink className="h-3 w-3" />
+                        <span className="truncate">{src.safeUrl}</span>
+                        <ExternalLink className="h-3 w-3 flex-shrink-0 text-[#7D7E84] group-hover:text-cyan-300" />
                       </a>
                     )}
                   </div>

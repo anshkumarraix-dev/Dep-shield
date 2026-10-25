@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Sparkles,
   Zap,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   validateAndParsePackageLock,
@@ -22,9 +23,10 @@ interface UploadCardProps {
   onStartScan: (summary: LockfileParsedSummary) => void;
   isScanning: boolean;
   onError?: (error: string) => void;
+  onSelectPreset?: (presetId: string) => void;
 }
 
-export function UploadCard({ onStartScan, isScanning, onError }: UploadCardProps) {
+export function UploadCard({ onStartScan, isScanning, onError, onSelectPreset }: UploadCardProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedSummary, setSelectedSummary] = useState<LockfileParsedSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

@@ -24,6 +24,7 @@ import { ActivityFeedPreview } from '@/components/dashboard/ActivityFeedPreview'
 import { UploadCard } from '@/components/upload/UploadCard';
 import { ScanProgressBar } from '@/components/scan/ScanProgressBar';
 import { scansService } from '@/services/scansService';
+import { validateAndParsePackageLock, SAMPLE_DEMO_PACKAGE_LOCK } from '@/services/lockfileParser';
 import {
   ScanSummaryMetrics,
   SecurityFinding,
@@ -59,34 +60,35 @@ export default function DepShieldHomePage() {
 
   // Cleanup pending timers on component unmount
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      const times = activeCase.timeline.map((ev) => ev.timeSeconds);
-      const minT = Math.min(...times);
-      const maxT = Math.max(...times);
-      const step = Math.max(1, Math.round((maxT - minT) / 50));
-
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setCurrentTimeSeconds((prev) => Math.max(minT, prev - step));
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setCurrentTimeSeconds((prev) => Math.min(maxT, prev + step));
-      }
+    return () => {
+      timersRef.current.forEach((t) => clearTimeout(t));
+      timersRef.current = [];
     };
+  }, []);
 
   // Initial load with baseline demo telemetry
   useEffect(() => {
-    const handlePopState = () => {
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        const caseParam = params.get('case');
-        if (caseParam && REPLAY_CASES_MAP.has(caseParam)) {
-          setSelectedCaseId(caseParam);
+    let ignore = false;
+    async function init() {
+      try {
+        const [metricsData, findingsData, activityData] = await Promise.all([
+          scansService.getSummaryMetrics(),
+          scansService.getFindings(),
+          scansService.getActivityFeed(),
+        ]);
+        if (!ignore) {
+          setMetrics(metricsData);
+          setFindings(findingsData);
+          setActivity(activityData);
+          setLastSyncedTime(new Date().toLocaleTimeString());
         }
+      } catch (err) {
+        console.error('Failed to load initial DepShield telemetry:', err);
       }
+    }
+    void init();
+    return () => {
+      ignore = true;
     };
   }, []);
 
@@ -98,9 +100,10 @@ export default function DepShieldHomePage() {
     setIsScanning(true);
     setLastScannedFile(lockfileSummary.fileName);
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+    try {
+      const result = await scansService.simulateScan(lockfileSummary, (progress) => {
+        setProgressState(progress);
+      });
 
       setMetrics(result.summary);
       setFindings(result.findings);
@@ -128,24 +131,14 @@ export default function DepShieldHomePage() {
       }, 1500);
       timersRef.current.push(dismissTimer);
     }
-    void startReplayScan(newCaseId);
   };
 
   // Re-run demo scan with sample lockfile
   const handleTriggerQuickScan = async () => {
-    const dummySummary: LockfileParsedSummary = {
-      fileName: 'sample-package-lock.json',
-      fileSizeBytes: 24500,
-      lockfileVersion: 3,
-      projectName: 'depshield-demo-app',
-      projectVersion: '2.1.0',
-      totalPackagesDetected: metrics?.totalDependenciesScanned || 384,
-      directDependenciesCount: metrics?.directCount || 22,
-      transitiveDependenciesCount: metrics?.transitiveCount || 362,
-      parsedAt: new Date().toISOString(),
-      isSyntheticSample: true,
-    };
-    reader.readAsText(file);
+    const parsed = validateAndParsePackageLock(SAMPLE_DEMO_PACKAGE_LOCK, 'sample-package-lock.json', true);
+    if (parsed.summary) {
+      await handleStartScan(parsed.summary);
+    }
   };
 
   const scrollToUpload = () => {
@@ -248,10 +241,6 @@ export default function DepShieldHomePage() {
                   Upload your package-lock.json (v2 or v3) or replay synthetic demonstration telemetry
                 </p>
               </div>
-              <span className="font-mono font-bold tracking-tight text-sm text-slate-100">
-                DEPSHIELD <span className="text-slate-400 font-normal text-xs">&#47;&#47; INCIDENT ROOM</span>
-              </span>
-            </div>
 
               <div className="flex items-center gap-2 text-xs font-mono text-[#BDBDC1]">
                 <span className="text-[#7D7E84]">Active Target:</span>
@@ -259,7 +248,6 @@ export default function DepShieldHomePage() {
                 {lastSyncedTime && <span className="text-[#5F5F62]">&bull; {lastSyncedTime}</span>}
               </div>
             </div>
-          </div>
 
             {/* Upload Card with error toast trigger */}
             <div ref={uploadSectionRef}>

@@ -188,12 +188,12 @@ export const scansService = {
         const query = filters.searchQuery.toLowerCase().trim();
         filtered = filtered.filter(
           (f) =>
-            f.title.toLowerCase().includes(query) ||
-            f.packageName.toLowerCase().includes(query) ||
-            f.signalCategory.toLowerCase().includes(query) ||
+            f.title?.toLowerCase().includes(query) ||
+            f.packageName?.toLowerCase().includes(query) ||
+            f.signalCategory?.toLowerCase().includes(query) ||
             f.advisoryId?.toLowerCase().includes(query) ||
-            f.riskExplanation.toLowerCase().includes(query) ||
-            f.installedVersion.toLowerCase().includes(query)
+            f.riskExplanation?.toLowerCase().includes(query) ||
+            f.installedVersion?.toLowerCase().includes(query)
         );
       }
 

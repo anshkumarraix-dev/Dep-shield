@@ -611,20 +611,60 @@ def set_module_client(client: Optional[TinyFishClient]) -> None:
     _module_client = client
 
 
+def _matches_host(hostname: str | None, domain: str) -> bool:
+    """Checks whether hostname equals domain or is a subdomain of domain."""
+    if not hostname:
+        return False
+    h = hostname.lower()
+    d = domain.lower()
+    return h == d or h.endswith("." + d)
+
+
 def _classify_source_url(url: str) -> SourceType:
     """Maps a URL to its appropriate SourceType category."""
+    try:
+        parse_target = url if "://" in url else f"https://{url}"
+        parsed = urllib.parse.urlparse(parse_target)
+        host = (parsed.hostname or "").lower()
+        path = (parsed.path or "").lower()
+    except Exception:
+        host = ""
+        path = ""
+
     u = url.lower()
-    if "github.com" in u and "/issues" in u:
+    if _matches_host(host, "github.com") and "/issues" in path:
         return "github_issue"
-    if "advisory" in u or "ghsa-" in u or "cve-" in u or "snyk.io" in u or "osv.dev" in u:
+    if (
+        "advisory" in path
+        or "ghsa-" in u
+        or "cve-" in u
+        or _matches_host(host, "snyk.io")
+        or _matches_host(host, "osv.dev")
+    ):
         return "advisory"
-    if "bleepingcomputer.com" in u or "thehackernews.com" in u or "news" in u:
-        return "news"
-    if "medium.com" in u or "blog" in u or "substack.com" in u:
-        return "blog"
-    if "ycombinator.com" in u or "reddit.com" in u or "forum" in u or "stackoverflow.com" in u:
+    if (
+        _matches_host(host, "ycombinator.com")
+        or _matches_host(host, "reddit.com")
+        or _matches_host(host, "stackoverflow.com")
+        or "forum" in path
+        or host.startswith("forum.")
+    ):
         return "forum"
-    if "changelog" in u or "release" in u:
+    if (
+        _matches_host(host, "bleepingcomputer.com")
+        or _matches_host(host, "thehackernews.com")
+        or "news" in path
+        or host.startswith("news.")
+    ):
+        return "news"
+    if (
+        _matches_host(host, "medium.com")
+        or _matches_host(host, "substack.com")
+        or "blog" in path
+        or host.startswith("blog.")
+    ):
+        return "blog"
+    if "changelog" in path or "release" in path:
         return "changelog"
     return "other"
 

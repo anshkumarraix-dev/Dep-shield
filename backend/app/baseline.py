@@ -550,8 +550,14 @@ async def _npm_metadata(
             issues_url = raw_bugs.get("url")
         elif isinstance(raw_bugs, str):
             issues_url = raw_bugs
-        elif repo_url and "github.com" in repo_url:
-            issues_url = f"{repo_url}/issues"
+        elif repo_url:
+            try:
+                _parsed_repo = urllib.parse.urlparse(repo_url if "://" in repo_url else f"https://{repo_url}")
+                _repo_host = (_parsed_repo.hostname or "").lower()
+                if _repo_host == "github.com" or _repo_host.endswith(".github.com"):
+                    issues_url = f"{repo_url}/issues"
+            except Exception:
+                pass
 
         # Extract latest version from dist-tags if available
         latest = None

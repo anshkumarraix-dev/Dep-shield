@@ -384,3 +384,50 @@ async def test_monitor_routes_tinyfish_error_mapping(monkeypatch):
     finally:
         monkeypatch.setattr(settings, "use_stubs", orig_use_stubs)
         monkeypatch.setattr(settings, "tinyfish_live_enabled", orig_live)
+
+
+@pytest.mark.asyncio
+async def test_replay_path_traversal_rejected():
+    """Verify path traversal payloads in replay endpoint are strictly rejected with 400."""
+    from app.main import _get_replay_lockfile
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        for bad_id in [
+            "invalid;name",
+            "test..traversal",
+            "bad$identifier",
+            "case name",
+            "case%2e%2e",
+        ]:
+            resp = await client.post(f"/api/replay/{bad_id}")
+            assert resp.status_code == 400, f"Expected 400 for bad case_id {bad_id!r}, got {resp.status_code}"
+
+    # Verify _get_replay_lockfile never reads files outside fixtures/lockfiles
+    synthetic = _get_replay_lockfile("../../etc/passwd")
+    assert "root:" not in synthetic
+    assert "secure-app" in synthetic or "crypto-app" in synthetic
+
+
+def test_classify_source_url_prevents_domain_spoofing():
+    """Verify that domain substring spoofing does not trick URL classification."""
+    from app.tinyfish_client import _classify_source_url
+
+    # Malicious/spoofed URLs must NOT be classified into sensitive categories
+    assert _classify_source_url("https://attacker.com/github.com/issues") == "other"
+    assert _classify_source_url("https://evil-github.com/issues/1") == "other"
+    assert _classify_source_url("https://attacker.com/?q=snyk.io") == "other"
+    assert _classify_source_url("https://evil-bleepingcomputer.com/article") == "other"
+    assert _classify_source_url("https://not-reddit.com/r/security") == "other"
+    assert _classify_source_url("https://attacker.com/subdomain/medium.com") == "other"
+
+    # Legitimate URLs must be accurately classified
+    assert _classify_source_url("https://github.com/expressjs/express/issues/123") == "github_issue"
+    assert _classify_source_url("https://snyk.io/vuln/SNYK-JS-123") == "advisory"
+    assert _classify_source_url("https://osv.dev/vulnerability/GHSA-1234") == "advisory"
+    assert _classify_source_url("https://www.bleepingcomputer.com/news/security/123") == "news"
+    assert _classify_source_url("https://thehackernews.com/2026/01/story.html") == "news"
+    assert _classify_source_url("https://medium.com/@author/story") == "blog"
+    assert _classify_source_url("https://reddit.com/r/node/comments/123") == "forum"
+    assert _classify_source_url("https://news.ycombinator.com/item?id=123") == "forum"
+

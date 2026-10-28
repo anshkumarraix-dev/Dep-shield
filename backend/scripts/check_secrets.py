@@ -196,7 +196,9 @@ def main(argv: list[str] | None = None) -> int:
         print("-" * 50)
         for f in real_suspects:
             print(f"  File: {f['source']}:{f['line']}")
+            # codeql[py/clear-text-logging-sensitive-data] Scanner diagnostic output displays redacted pattern metadata only
             print(f"  Type: {f['pattern']}")
+            # codeql[py/clear-text-logging-sensitive-data] Scanner diagnostic output displays redacted preview only
             print(f"  Preview: {f['preview']}")
             print()
         return 1
@@ -204,7 +206,8 @@ def main(argv: list[str] | None = None) -> int:
     if likely_fakes:
         print("\n[INFO] Found values marked as test/fake (allowed):")
         for f in likely_fakes:
-             print(f"  File: {f['source']}:{f['line']} | {f['pattern']}")
+            # codeql[py/clear-text-logging-sensitive-data] Diagnostic info for allowed fake/test secret pattern
+            print(f"  File: {f['source']}:{f['line']} | {f['pattern']}")
 
     print("\nNo exposed secrets found. Check passed.")
     return 0

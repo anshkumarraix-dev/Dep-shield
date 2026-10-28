@@ -17,6 +17,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import re
 import uuid
 from pathlib import Path
 from typing import Annotated, Any
@@ -125,11 +127,16 @@ def _get_replay_cases() -> list[dict[str, Any]]:
 
 
 def _get_replay_lockfile(case_id: str) -> str:
-    # Check fixtures/lockfiles or synthesize realistic lockfile
-    fixture_dir = Path(__file__).resolve().parent.parent / "fixtures" / "lockfiles"
-    case_path = fixture_dir / f"{case_id}.json"
-    if case_path.exists():
-        return case_path.read_text(encoding="utf-8")
+    # Ensure case_id is a safe identifier without path traversal components
+    if re.fullmatch(r"^[a-zA-Z0-9_-]+$", case_id):
+        fixture_dir = (Path(__file__).resolve().parent.parent / "fixtures" / "lockfiles").resolve()
+        safe_name = os.path.basename(case_id)
+        case_path = (fixture_dir / f"{safe_name}.json").resolve()
+        try:
+            if case_path.is_relative_to(fixture_dir) and case_path.is_file():
+                return case_path.read_text(encoding="utf-8")
+        except (ValueError, AttributeError):
+            pass
 
     # Synthesize realistic sample lockfile for replay
     if "event-stream" in case_id:
@@ -310,6 +317,11 @@ async def create_scan_upload(
 
 @app.post("/api/replay/{case_id}")
 async def create_replay_scan(case_id: str) -> dict[str, str]:
+    if not re.fullmatch(r"^[a-zA-Z0-9_-]+$", case_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid replay case identifier format.",
+        )
     cases = _get_replay_cases()
     selected_case = next((c for c in cases if c.get("id") == case_id), None)
     if not selected_case:
